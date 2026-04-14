@@ -1,0 +1,23 @@
+2026-04-14 13:20:33,827 | INFO | === Début du script de construction du référentiel ===
+2026-04-14 13:20:34,177 | INFO | Campagnes chargées : 28
+2026-04-14 13:20:34,607 | INFO | Questions chargées : 509
+2026-04-14 13:20:35,107 | INFO | Choices chargés : 1085
+2026-04-14 13:20:35,109 | INFO | Produits construits : 15
+2026-04-14 13:20:35,109 | INFO | Questions valides : 114
+2026-04-14 13:20:35,110 | WARNING | Questions orphelines : 395
+2026-04-14 13:20:35,110 | INFO | Choices valides : 233
+2026-04-14 13:20:35,111 | WARNING | Choices orphelins : 852
+2026-04-14 13:20:35,133 | INFO | Criteria transformés : 114
+2026-04-14 13:20:35,142 | INFO | Choices transformés : 233
+2026-04-14 13:20:35,144 | INFO | Product targets construits : 94
+2026-04-14 13:20:35,146 | INFO | Structure produit finale construite : 15 produits
+2026-04-14 13:20:35,148 | INFO | Fichier sauvegardé : /home/rfaraj/my-pfe-project/scripts/output/products.json
+2026-04-14 13:20:35,168 | INFO | Fichier sauvegardé : /home/rfaraj/my-pfe-project/scripts/output/criteria.json
+2026-04-14 13:20:35,199 | INFO | Fichier sauvegardé : /home/rfaraj/my-pfe-project/scripts/output/choice.json
+2026-04-14 13:20:35,205 | INFO | Fichier sauvegardé : /home/rfaraj/my-pfe-project/scripts/output/product_target.json
+2026-04-14 13:20:35,253 | INFO | Fichier sauvegardé : /home/rfaraj/my-pfe-project/scripts/output/product_structure.json
+2026-04-14 13:20:35,284 | INFO | Fichier sauvegardé : /home/rfaraj/my-pfe-project/scripts/output/orphan_questions.json
+2026-04-14 13:20:35,344 | INFO | Fichier sauvegardé : /home/rfaraj/my-pfe-project/scripts/output/orphan_choices.json
+2026-04-14 13:20:35,381 | INFO | Fichier sauvegardé : /home/rfaraj/my-pfe-project/scripts/output/reference_bundle.json
+2026-04-14 13:20:35,382 | INFO | === Fin du script ===
+2026-04-14 13:20:35,382 | INFO | Log d'exécution disponible ici : /home/rfaraj/my-pfe-project/scripts/logs/build_reference_20260414_132033.log

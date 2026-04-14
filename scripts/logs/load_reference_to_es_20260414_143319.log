@@ -1,0 +1,29 @@
+2026-04-14 14:33:19,553 | INFO | === Début chargement référentiel vers Elasticsearch ===
+2026-04-14 14:33:19,553 | INFO | Fichier chargé : /home/rfaraj/my-pfe-project/scripts/output/products.json (15 éléments)
+2026-04-14 14:33:19,555 | INFO | Fichier chargé : /home/rfaraj/my-pfe-project/scripts/output/criteria.json (114 éléments)
+2026-04-14 14:33:19,558 | INFO | Fichier chargé : /home/rfaraj/my-pfe-project/scripts/output/choice.json (233 éléments)
+2026-04-14 14:33:19,558 | INFO | Fichier chargé : /home/rfaraj/my-pfe-project/scripts/output/product_target.json (94 éléments)
+2026-04-14 14:33:19,559 | INFO | Recréation des index cibles...
+2026-04-14 14:33:19,650 | INFO | Index supprimé ou absent : product
+2026-04-14 14:33:19,687 | INFO | Index supprimé ou absent : criteria
+2026-04-14 14:33:19,723 | INFO | Index supprimé ou absent : choice
+2026-04-14 14:33:19,765 | INFO | Index supprimé ou absent : product_target
+2026-04-14 14:33:19,884 | INFO | Index créé : product
+2026-04-14 14:33:19,983 | INFO | Index créé : criteria
+2026-04-14 14:33:20,084 | INFO | Index créé : choice
+2026-04-14 14:33:20,190 | INFO | Index créé : product_target
+2026-04-14 14:33:20,191 | INFO | Chargement index product : 15 documents
+2026-04-14 14:33:20,279 | INFO | Index product chargé avec succès
+2026-04-14 14:33:20,280 | INFO | Chargement index criteria : 114 documents
+2026-04-14 14:33:20,898 | INFO | Index criteria chargé avec succès
+2026-04-14 14:33:20,898 | INFO | Chargement index choice : 233 documents
+2026-04-14 14:33:22,043 | INFO | Index choice chargé avec succès
+2026-04-14 14:33:22,044 | INFO | Chargement index product_target : 94 documents
+2026-04-14 14:33:22,459 | INFO | Index product_target chargé avec succès
+2026-04-14 14:33:22,460 | INFO | Résumé final :
+2026-04-14 14:33:22,463 | INFO | product        = 15
+2026-04-14 14:33:22,467 | INFO | criteria       = 114
+2026-04-14 14:33:22,471 | INFO | choice         = 232
+2026-04-14 14:33:22,475 | INFO | product_target = 21
+2026-04-14 14:33:22,475 | INFO | === Fin chargement ===
+2026-04-14 14:33:22,475 | INFO | Log d'exécution : /home/rfaraj/my-pfe-project/scripts/logs/load_reference_to_es_20260414_143319.log

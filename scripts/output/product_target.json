@@ -1,0 +1,660 @@
+[
+  {
+    "id": "PT001",
+    "sf_campaign_id": "701W500000HbqtwIAB",
+    "product_id": "P001",
+    "sf_campaign_name": "FR PRV EFF PNL BPO HR EXO 27",
+    "xtra_campaign_id": "CX-644bd772-4a65-4898-9716-8742988686f4"
+  },
+  {
+    "id": "PT002",
+    "sf_campaign_id": "701W500000HzVbNIAV",
+    "product_id": "P001",
+    "sf_campaign_name": "FR PRV EFF BPO VM EXO 27",
+    "xtra_campaign_id": "CX-644bd772-4a65-4898-9716-8742988686f4"
+  },
+  {
+    "id": "PT003",
+    "sf_campaign_id": "701W500000HtXJJIA3",
+    "product_id": "P001",
+    "sf_campaign_name": "FR PRV EFF BPO FORMATION EXO 27",
+    "xtra_campaign_id": "CX-644bd772-4a65-4898-9716-8742988686f4"
+  },
+  {
+    "id": "PT004",
+    "sf_campaign_id": "701W500000RtLXJIA3",
+    "product_id": "P002",
+    "sf_campaign_name": "FR PRV CIR Primo EXO 27",
+    "xtra_campaign_id": "CX-1542e042-62a3-45b8-bac7-795243cc279c"
+  },
+  {
+    "id": "PT005",
+    "sf_campaign_id": "701W500000RswUCIAZ",
+    "product_id": "P002",
+    "sf_campaign_name": "FR PRV CIR NEFTYS EXO 27",
+    "xtra_campaign_id": "CX-1542e042-62a3-45b8-bac7-795243cc279c"
+  },
+  {
+    "id": "PT006",
+    "sf_campaign_id": "701W500000RtHn3IAF",
+    "product_id": "P002",
+    "sf_campaign_name": "FR PRV CIR HORS CAMPAGNE EXO 27",
+    "xtra_campaign_id": "CX-1542e042-62a3-45b8-bac7-795243cc279c"
+  },
+  {
+    "id": "PT007",
+    "sf_campaign_id": "701AX0000009eeNYAQ",
+    "product_id": "P003",
+    "sf_campaign_name": "FR PRV A&S DECARBONATION INDUSTRIE EXO 25",
+    "xtra_campaign_id": "CX-4421c922-c24f-4cc1-bcf5-8fc120d1d061"
+  },
+  {
+    "id": "PT008",
+    "sf_campaign_id": "701W500000XksVSIAZ",
+    "product_id": "P004",
+    "sf_campaign_name": "FR PRDV NRJ TER CEE FICHES TRANSPORTS EXO 27",
+    "xtra_campaign_id": "CX-ab70ce95-554b-4547-ad2a-b1967c3f1f63"
+  },
+  {
+    "id": "PT009",
+    "sf_campaign_id": "701W500000D6BNyIAN",
+    "product_id": "P004",
+    "sf_campaign_name": "FR PRDV NRJ TER TRANSPORT/LOGISTIQUE EXO 27",
+    "xtra_campaign_id": "CX-28c07fe0-46cd-42d4-8979-1e8a2184ff76"
+  },
+  {
+    "id": "PT010",
+    "sf_campaign_id": "701W500000D6XmfIAF",
+    "product_id": "P004",
+    "sf_campaign_name": "FR PRDV NRJ INDUS CEE DIRECTS EXO 27",
+    "xtra_campaign_id": "CX-28c07fe0-46cd-42d4-8979-1e8a2184ff76"
+  },
+  {
+    "id": "PT011",
+    "sf_campaign_id": "701W500000DC5IzIAL",
+    "product_id": "P004",
+    "sf_campaign_name": "FR PRDV NRJ RESID CALO EXO 27",
+    "xtra_campaign_id": "CX-28c07fe0-46cd-42d4-8979-1e8a2184ff76"
+  },
+  {
+    "id": "PT012",
+    "sf_campaign_id": "701W500000DACewIAH",
+    "product_id": "P004",
+    "sf_campaign_name": "FR PRDV NRJ RESID BAILLEURS CEE EXO 27",
+    "xtra_campaign_id": "CX-28c07fe0-46cd-42d4-8979-1e8a2184ff76"
+  },
+  {
+    "id": "PT013",
+    "sf_campaign_id": "701W500000DIkGHIA1",
+    "product_id": "P004",
+    "sf_campaign_name": "FR PRDV NRJ TER SDE EXO 27",
+    "xtra_campaign_id": "CX-28c07fe0-46cd-42d4-8979-1e8a2184ff76"
+  },
+  {
+    "id": "PT014",
+    "sf_campaign_id": "701W500000D6kGpIAJ",
+    "product_id": "P004",
+    "sf_campaign_name": "FR PRDV NRJ TER BTP EXO 27",
+    "xtra_campaign_id": "CX-28c07fe0-46cd-42d4-8979-1e8a2184ff76"
+  },
+  {
+    "id": "PT015",
+    "sf_campaign_id": "701W500000D6c6RIAR",
+    "product_id": "P004",
+    "sf_campaign_name": "FR PRDV NRJ TER CEE IT EXO 27",
+    "xtra_campaign_id": "CX-28c07fe0-46cd-42d4-8979-1e8a2184ff76"
+  },
+  {
+    "id": "PT016",
+    "sf_campaign_id": "701W500000D6OhjIAF",
+    "product_id": "P005",
+    "sf_campaign_name": "FR PRDV NRJ TER PE EPCI EXO 27",
+    "xtra_campaign_id": "CX-11a84676-6ded-4459-87d1-04ffcbb25e74"
+  },
+  {
+    "id": "PT017",
+    "sf_campaign_id": "701W500000D6miQIAR",
+    "product_id": "P005",
+    "sf_campaign_name": "FR PRDV NRJ INDUS ECO EMBALLAGE EXO 27",
+    "xtra_campaign_id": "CX-9abd5612-e016-4de0-a9e8-5484c7cc9953"
+  },
+  {
+    "id": "PT018",
+    "sf_campaign_id": "701W500000D6hVqIAJ",
+    "product_id": "P005",
+    "sf_campaign_name": "FR PRDV NRJ TER PE RETAIL EXO 27",
+    "xtra_campaign_id": "CX-9abd5612-e016-4de0-a9e8-5484c7cc9953"
+  },
+  {
+    "id": "PT019",
+    "sf_campaign_id": "701W500000ikNMxIAM",
+    "product_id": "P006",
+    "sf_campaign_name": "FR PRV EFF FL C3S CA ETRANGER EXO 28",
+    "xtra_campaign_id": "CX-f748a885-d23d-4335-928f-0c5d17fa44e7"
+  },
+  {
+    "id": "PT020",
+    "sf_campaign_id": "701W500000ikUMjIAM",
+    "product_id": "P006",
+    "sf_campaign_name": "FR PRV EFF FL C3S CAT EXO 28",
+    "xtra_campaign_id": "CX-f748a885-d23d-4335-928f-0c5d17fa44e7"
+  },
+  {
+    "id": "PT021",
+    "sf_campaign_id": "701W500000hxoWIIAY",
+    "product_id": "P006",
+    "sf_campaign_name": "FR PRV EFF FL C3S PHARMA EXO 28",
+    "xtra_campaign_id": "CX-f748a885-d23d-4335-928f-0c5d17fa44e7"
+  },
+  {
+    "id": "PT022",
+    "sf_campaign_id": "701bF00000SBUXOQA5",
+    "product_id": "P006",
+    "sf_campaign_name": "FR PRV EFF FL C3S PLAFONNEMENT EXO 28",
+    "xtra_campaign_id": "CX-f748a885-d23d-4335-928f-0c5d17fa44e7"
+  },
+  {
+    "id": "PT023",
+    "sf_campaign_id": "701W500000idG21IAE",
+    "product_id": "P006",
+    "sf_campaign_name": "FR PRV EFF FL C3S PRESTA HORS FRANCE EXO 28",
+    "xtra_campaign_id": "CX-f748a885-d23d-4335-928f-0c5d17fa44e7"
+  },
+  {
+    "id": "PT024",
+    "sf_campaign_id": "701W500000hZxvlIAC",
+    "product_id": "P007",
+    "sf_campaign_name": "FR PRV EFF HA RH ASSU ADP EXO 28",
+    "xtra_campaign_id": "CX-e8787439-a4d9-491f-bbbd-918b4777c60f"
+  },
+  {
+    "id": "PT025",
+    "sf_campaign_id": "701W500000hakUzIAI",
+    "product_id": "P008",
+    "sf_campaign_name": "FR PRV EFF PAY CS FACILITIES EXO 28",
+    "xtra_campaign_id": "CX-10d30f84-d4b9-453d-a2f4-15eae3df2f19"
+  },
+  {
+    "id": "PT026",
+    "sf_campaign_id": "701W500000hxn0oIAA",
+    "product_id": "P008",
+    "sf_campaign_name": "FR PRV EFF PAY CS FILLON HYPERS EXO 28",
+    "xtra_campaign_id": "CX-10d30f84-d4b9-453d-a2f4-15eae3df2f19"
+  },
+  {
+    "id": "PT027",
+    "sf_campaign_id": "701bF00000Q3VgGQAV",
+    "product_id": "P008",
+    "sf_campaign_name": "FR PRV EFF PAY CS GDS EXO 28",
+    "xtra_campaign_id": "CX-10d30f84-d4b9-453d-a2f4-15eae3df2f19"
+  },
+  {
+    "id": "PT028",
+    "sf_campaign_id": "701W500000ivtfxIAA",
+    "product_id": "P008",
+    "sf_campaign_name": "FR PRV EFF PAY CS LODEOM EXO 28",
+    "xtra_campaign_id": "CX-10d30f84-d4b9-453d-a2f4-15eae3df2f19"
+  },
+  {
+    "id": "PT029",
+    "sf_campaign_id": "701bF00000SB4D4QAL",
+    "product_id": "P008",
+    "sf_campaign_name": "FR PRV EFF PAY CS RENEW FILLON EXO 28",
+    "xtra_campaign_id": "CX-10d30f84-d4b9-453d-a2f4-15eae3df2f19"
+  },
+  {
+    "id": "PT030",
+    "sf_campaign_id": "701W500000haWoeIAE",
+    "product_id": "P008",
+    "sf_campaign_name": "FR PRV EFF PAY CS TRANSPORT EXO 28",
+    "xtra_campaign_id": "CX-10d30f84-d4b9-453d-a2f4-15eae3df2f19"
+  },
+  {
+    "id": "PT031",
+    "sf_campaign_id": "701bF00000RwFgfQAF",
+    "product_id": "P008",
+    "sf_campaign_name": "FR PRV EFF PAY REC IJ EXO 28",
+    "xtra_campaign_id": "CX-10d30f84-d4b9-453d-a2f4-15eae3df2f19"
+  },
+  {
+    "id": "PT032",
+    "sf_campaign_id": "701bF00000SGqVZQA1",
+    "product_id": "P008",
+    "sf_campaign_name": "FR PRV EFF PAY CS - UES AGA - EXO 28",
+    "xtra_campaign_id": "CX-10d30f84-d4b9-453d-a2f4-15eae3df2f19"
+  },
+  {
+    "id": "PT033",
+    "sf_campaign_id": "701bF00000PNrLOQA1",
+    "product_id": "P002",
+    "sf_campaign_name": "FR_PRV_INNO_RENOUV_AGR_CIR_EXO_28",
+    "xtra_campaign_id": "CX-d504ad9b-9c85-4b73-a058-63eeb162437b"
+  },
+  {
+    "id": "PT034",
+    "sf_campaign_id": "701bF00000QNhyBQAT",
+    "product_id": "P002",
+    "sf_campaign_name": "FR_PRV_INNO_Pot Commun Paris_EXO 28",
+    "xtra_campaign_id": "CX-d504ad9b-9c85-4b73-a058-63eeb162437b"
+  },
+  {
+    "id": "PT035",
+    "sf_campaign_id": "701bF00000RRxvhQAD",
+    "product_id": "P002",
+    "sf_campaign_name": "FR_PRV_INNO_POT COMMUN ABCD LYON_EXO 28",
+    "xtra_campaign_id": "CX-d504ad9b-9c85-4b73-a058-63eeb162437b"
+  },
+  {
+    "id": "PT036",
+    "sf_campaign_id": "701bF00000SRDnRQAX",
+    "product_id": "P002",
+    "sf_campaign_name": "FR_PRV_INNO_POT_COMMUN_CASA_EXO 28",
+    "xtra_campaign_id": "CX-d504ad9b-9c85-4b73-a058-63eeb162437b"
+  },
+  {
+    "id": "PT037",
+    "sf_campaign_id": "701W500000e6RMiIAM",
+    "product_id": "P002",
+    "sf_campaign_name": "FR_PRV_INNO_MISSION_ETI_EXO 28",
+    "xtra_campaign_id": "CX-d504ad9b-9c85-4b73-a058-63eeb162437b"
+  },
+  {
+    "id": "PT038",
+    "sf_campaign_id": "701bF00000PYPC7QAP",
+    "product_id": "P002",
+    "sf_campaign_name": "FR_PRV_INNO_CIR_CLIENTS_PERDUS _EXO 28",
+    "xtra_campaign_id": "CX-d504ad9b-9c85-4b73-a058-63eeb162437b"
+  },
+  {
+    "id": "PT039",
+    "sf_campaign_id": "701W500000gozeaIAA",
+    "product_id": "P002",
+    "sf_campaign_name": "FR_PRV_INNO_360_TPE_EXO 28",
+    "xtra_campaign_id": "CX-d504ad9b-9c85-4b73-a058-63eeb162437b"
+  },
+  {
+    "id": "PT040",
+    "sf_campaign_id": "701W500000gp9U9IAI",
+    "product_id": "P002",
+    "sf_campaign_name": "FR_PRV_INNO_360_ROOKIES_EXO 28",
+    "xtra_campaign_id": "CX-d504ad9b-9c85-4b73-a058-63eeb162437b"
+  },
+  {
+    "id": "PT041",
+    "sf_campaign_id": "701W500000goW1QIAU",
+    "product_id": "P002",
+    "sf_campaign_name": "FR_PRV_INNO_360_PREMIUM_EXO 28",
+    "xtra_campaign_id": "CX-d504ad9b-9c85-4b73-a058-63eeb162437b"
+  },
+  {
+    "id": "PT042",
+    "sf_campaign_id": "701W500000gpES9IAM",
+    "product_id": "P002",
+    "sf_campaign_name": "FR_PRV_INNO_360_PME_EXO 28",
+    "xtra_campaign_id": "CX-d504ad9b-9c85-4b73-a058-63eeb162437b"
+  },
+  {
+    "id": "PT043",
+    "sf_campaign_id": "701W500000iR8EgIAK",
+    "product_id": "P002",
+    "sf_campaign_name": "FR_PRV_INNO_360_NOUVEAUX_COMPTES_EXO 28",
+    "xtra_campaign_id": "CX-d504ad9b-9c85-4b73-a058-63eeb162437b"
+  },
+  {
+    "id": "PT044",
+    "sf_campaign_id": "701W500000iQeyGIAS",
+    "product_id": "P002",
+    "sf_campaign_name": "FR_PRV_INNO_360_EXOTIQUE_EXO 28",
+    "xtra_campaign_id": "CX-d504ad9b-9c85-4b73-a058-63eeb162437b"
+  },
+  {
+    "id": "PT045",
+    "sf_campaign_id": "701W500000gp3IFIAY",
+    "product_id": "P002",
+    "sf_campaign_name": "FR_PRV_INNO_360_ETI_EXO 28",
+    "xtra_campaign_id": "CX-d504ad9b-9c85-4b73-a058-63eeb162437b"
+  },
+  {
+    "id": "PT046",
+    "sf_campaign_id": "701W500000gpDPeIAM",
+    "product_id": "P002",
+    "sf_campaign_name": "FR_PRV_INNO_360_DEJA_VU_EXO 28",
+    "xtra_campaign_id": "CX-d504ad9b-9c85-4b73-a058-63eeb162437b"
+  },
+  {
+    "id": "PT047",
+    "sf_campaign_id": "701W500000iRFWHIA4",
+    "product_id": "P002",
+    "sf_campaign_name": "FR_PRV_INNO_360_CLIENTS_HORS_INNO_EXO 28",
+    "xtra_campaign_id": "CX-d504ad9b-9c85-4b73-a058-63eeb162437b"
+  },
+  {
+    "id": "PT048",
+    "sf_campaign_id": "701W500000iR0nQIAS",
+    "product_id": "P002",
+    "sf_campaign_name": "FR_PRV_INNO_360_CLIENTS_ETRANGERS_EXO 28",
+    "xtra_campaign_id": "CX-d504ad9b-9c85-4b73-a058-63eeb162437b"
+  },
+  {
+    "id": "PT049",
+    "sf_campaign_id": "701W500000goiQyIAI",
+    "product_id": "P002",
+    "sf_campaign_name": "FR_PRV_INNO_360_CLIENTS_ACTIFS_EXO 28",
+    "xtra_campaign_id": "CX-d504ad9b-9c85-4b73-a058-63eeb162437b"
+  },
+  {
+    "id": "PT050",
+    "sf_campaign_id": "701W500000hgUtqIAE",
+    "product_id": "P005",
+    "sf_campaign_name": "FR PRDV NRJ PE DECHET INDUS EXO 28",
+    "xtra_campaign_id": "CX-647eedca-ebe3-406f-9677-ee5fddf887d3"
+  },
+  {
+    "id": "PT051",
+    "sf_campaign_id": "701W500000hcH8pIAE",
+    "product_id": "P005",
+    "sf_campaign_name": "FR PRDV NRJ PE DECHET TERTIAIRE EXO 28",
+    "xtra_campaign_id": "CX-647eedca-ebe3-406f-9677-ee5fddf887d3"
+  },
+  {
+    "id": "PT052",
+    "sf_campaign_id": "701W500000hasVmIAI",
+    "product_id": "P009",
+    "sf_campaign_name": "FR PRV EFF HA TRANSPORT EXO 28",
+    "xtra_campaign_id": "CX-4f03375d-f469-4426-ae81-bb98820506a0"
+  },
+  {
+    "id": "PT053",
+    "sf_campaign_id": "701W500000j3YCwIAM",
+    "product_id": "P010",
+    "sf_campaign_name": "FR PRV EFF HA AUDIT RECOVERY EXO 28",
+    "xtra_campaign_id": "CX-c49cfd68-7f79-467f-aea6-76304ca791f3"
+  },
+  {
+    "id": "PT054",
+    "sf_campaign_id": "701W500000RFntiIAD",
+    "product_id": "P011",
+    "sf_campaign_name": "FR PRDV PE CARBONE VOLONTAIRE PRIO 2 EXO 27",
+    "xtra_campaign_id": "CX-5e374c07-e785-4396-bac9-db8c1ced11a4"
+  },
+  {
+    "id": "PT055",
+    "sf_campaign_id": "701W500000TzofKIAR",
+    "product_id": "P011",
+    "sf_campaign_name": "FR PRDV PE CARBONE VOLONTAIRE PRIO 1 EXO 27",
+    "xtra_campaign_id": "CX-5e374c07-e785-4396-bac9-db8c1ced11a4"
+  },
+  {
+    "id": "PT056",
+    "sf_campaign_id": "701bF00000PgYtLQAV",
+    "product_id": "P012",
+    "sf_campaign_name": "FR_PRV_INNO_IPBOX _EXO 28",
+    "xtra_campaign_id": "CX-0023d56a-11e2-4aed-8f1b-c5044f887816"
+  },
+  {
+    "id": "PT057",
+    "sf_campaign_id": "701bF00000PXrNMQA1",
+    "product_id": "P012",
+    "sf_campaign_name": "FR_PRV_INNO_IPBOX_CLIENTS_PERDUS _EXO 28",
+    "xtra_campaign_id": "CX-0023d56a-11e2-4aed-8f1b-c5044f887816"
+  },
+  {
+    "id": "PT058",
+    "sf_campaign_id": "701W500000e6RMiIAM",
+    "product_id": "P012",
+    "sf_campaign_name": "FR_PRV_INNO_MISSION_ETI_EXO 28",
+    "xtra_campaign_id": "CX-0023d56a-11e2-4aed-8f1b-c5044f887816"
+  },
+  {
+    "id": "PT059",
+    "sf_campaign_id": "701W500000gpES9IAM",
+    "product_id": "P012",
+    "sf_campaign_name": "FR_PRV_INNO_360_PME_EXO 28",
+    "xtra_campaign_id": "CX-0023d56a-11e2-4aed-8f1b-c5044f887816"
+  },
+  {
+    "id": "PT060",
+    "sf_campaign_id": "701W500000iRFWHIA4",
+    "product_id": "P012",
+    "sf_campaign_name": "FR_PRV_INNO_360_CLIENTS_HORS_INNO_EXO 28",
+    "xtra_campaign_id": "CX-0023d56a-11e2-4aed-8f1b-c5044f887816"
+  },
+  {
+    "id": "PT061",
+    "sf_campaign_id": "701bF00000Q2XQkQAN",
+    "product_id": "P005",
+    "sf_campaign_name": "FR PRV EFF NRJ BLANCHISSERIE EXO 28",
+    "xtra_campaign_id": "CX-f223efff-6371-4dc4-81d9-d5b5b6dbd30a"
+  },
+  {
+    "id": "PT062",
+    "sf_campaign_id": "701W500000ir1mDIAQ",
+    "product_id": "P005",
+    "sf_campaign_name": "FR PRV EFF NRJ ELECTROLYSE FISCA NRJ EXO 28",
+    "xtra_campaign_id": "CX-f223efff-6371-4dc4-81d9-d5b5b6dbd30a"
+  },
+  {
+    "id": "PT063",
+    "sf_campaign_id": "701bF00000SAu48QAD",
+    "product_id": "P005",
+    "sf_campaign_name": "FR PRV EFF NRJ EXONERATION PRIO 2 TICGN/TICFE EXO 28",
+    "xtra_campaign_id": "CX-f223efff-6371-4dc4-81d9-d5b5b6dbd30a"
+  },
+  {
+    "id": "PT064",
+    "sf_campaign_id": "701W500000ij093IAA",
+    "product_id": "P005",
+    "sf_campaign_name": "FR PRV EFF NRJ EXO TICGN/TICFE METAL EXO 28",
+    "xtra_campaign_id": "CX-f223efff-6371-4dc4-81d9-d5b5b6dbd30a"
+  },
+  {
+    "id": "PT065",
+    "sf_campaign_id": "701W500000ikDVcIAM",
+    "product_id": "P005",
+    "sf_campaign_name": "FR PRV EFF NRJ Renew FISCA NRJ EXO 28",
+    "xtra_campaign_id": "CX-f223efff-6371-4dc4-81d9-d5b5b6dbd30a"
+  },
+  {
+    "id": "PT066",
+    "sf_campaign_id": "701bF00000Q2yCQQAZ",
+    "product_id": "P005",
+    "sf_campaign_name": "FR PRV EFF NRJ TICFE/TICGN COMMERCE DE GROS EXO 28",
+    "xtra_campaign_id": "CX-f223efff-6371-4dc4-81d9-d5b5b6dbd30a"
+  },
+  {
+    "id": "PT067",
+    "sf_campaign_id": "701W500000ipg0fIAA",
+    "product_id": "P005",
+    "sf_campaign_name": "FR PRV EFF NRJ TICGN ASSIMILATION FISCA NRJ EXO 28",
+    "xtra_campaign_id": "CX-f223efff-6371-4dc4-81d9-d5b5b6dbd30a"
+  },
+  {
+    "id": "PT068",
+    "sf_campaign_id": "701bF00000Q3N9BQAV",
+    "product_id": "P005",
+    "sf_campaign_name": "FR PRV EFF NRJ TR TICGN & TICFE EXO 28",
+    "xtra_campaign_id": "CX-f223efff-6371-4dc4-81d9-d5b5b6dbd30a"
+  },
+  {
+    "id": "PT069",
+    "sf_campaign_id": "701bF00000RbI1gQAF",
+    "product_id": "P005",
+    "sf_campaign_name": "FR PRV EFF FP TICFE EAU NB EXO 28",
+    "xtra_campaign_id": "CX-f223efff-6371-4dc4-81d9-d5b5b6dbd30a"
+  },
+  {
+    "id": "PT070",
+    "sf_campaign_id": "701W500000haVEHIA2",
+    "product_id": "P005",
+    "sf_campaign_name": "FR PRDV NRJ PE INDUS HA NRJ EXO 28",
+    "xtra_campaign_id": "CX-ae27c874-390c-4d10-a922-a5b58a77d5ff"
+  },
+  {
+    "id": "PT071",
+    "sf_campaign_id": "701W500000hxPrMIAU",
+    "product_id": "P013",
+    "sf_campaign_name": "FR PRV EFF FL COMMERCIALE EXO 28",
+    "xtra_campaign_id": "CX-f54f28f1-bf1b-4fce-b1d6-38c16fa55644"
+  },
+  {
+    "id": "PT072",
+    "sf_campaign_id": "701bF00000Rv7JlQAJ",
+    "product_id": "P013",
+    "sf_campaign_name": "FR PRV EFF FL EXO ZAC EXO 28",
+    "xtra_campaign_id": "CX-f54f28f1-bf1b-4fce-b1d6-38c16fa55644"
+  },
+  {
+    "id": "PT073",
+    "sf_campaign_id": "701bF00000SRaQhQAL",
+    "product_id": "P013",
+    "sf_campaign_name": "FR PRV EFF FL TH PRESSE EXO 28",
+    "xtra_campaign_id": "CX-f54f28f1-bf1b-4fce-b1d6-38c16fa55644"
+  },
+  {
+    "id": "PT074",
+    "sf_campaign_id": "701bF00000RkuPUQAZ",
+    "product_id": "P013",
+    "sf_campaign_name": "FR PRV EFF FP TF COLL EXO 28",
+    "xtra_campaign_id": "CX-f54f28f1-bf1b-4fce-b1d6-38c16fa55644"
+  },
+  {
+    "id": "PT075",
+    "sf_campaign_id": "701bF00000T5O5uQAF",
+    "product_id": "P013",
+    "sf_campaign_name": "FR PRV EFF FP TF SYNDICATS EXO 28",
+    "xtra_campaign_id": "CX-f54f28f1-bf1b-4fce-b1d6-38c16fa55644"
+  },
+  {
+    "id": "PT076",
+    "sf_campaign_id": "701bF00000Q2AE9QAN",
+    "product_id": "P004",
+    "sf_campaign_name": "FR C2E LIQUIDE Campagne Syndicat EXO 28",
+    "xtra_campaign_id": "CX-bdd3ac67-8de2-4a4c-b631-8ea93127a4f8"
+  },
+  {
+    "id": "PT077",
+    "sf_campaign_id": "701bF00000Q28U3QAJ",
+    "product_id": "P004",
+    "sf_campaign_name": "FR C2E LIQUIDE Campagne Collectivités EXO 28",
+    "xtra_campaign_id": "CX-bdd3ac67-8de2-4a4c-b631-8ea93127a4f8"
+  },
+  {
+    "id": "PT078",
+    "sf_campaign_id": "701bF00000Q2AypQAF",
+    "product_id": "P004",
+    "sf_campaign_name": "FR C2E LIQUIDE Campagne Bailleurs Sociaux EXO 28",
+    "xtra_campaign_id": "CX-bdd3ac67-8de2-4a4c-b631-8ea93127a4f8"
+  },
+  {
+    "id": "PT079",
+    "sf_campaign_id": "701bF00000RXyp3QAD",
+    "product_id": "P001",
+    "sf_campaign_name": "FR PRV EFF PNL BPO HR EXO 28",
+    "xtra_campaign_id": "CX-a2e069fa-8e8d-446b-87e8-2f76cf61d3b5"
+  },
+  {
+    "id": "PT080",
+    "sf_campaign_id": "701W500000hazx4IAA",
+    "product_id": "P001",
+    "sf_campaign_name": "FR PRV EFF BPO (IJSS, VM, FORMATION) EXO 28",
+    "xtra_campaign_id": "CX-a2e069fa-8e8d-446b-87e8-2f76cf61d3b5"
+  },
+  {
+    "id": "PT081",
+    "sf_campaign_id": "701W500000eorVEIAY",
+    "product_id": "P014",
+    "sf_campaign_name": "FR PRV EFF HA RH INTERIM EXO 28",
+    "xtra_campaign_id": "CX-e3dc8b91-3bd8-4791-a84a-0545bb77b0e2"
+  },
+  {
+    "id": "PT082",
+    "sf_campaign_id": "701bF00000RYaBEQA1",
+    "product_id": "P014",
+    "sf_campaign_name": "FR PRV EFF PNL HA RH INTERIM CLIENTS EXO 28",
+    "xtra_campaign_id": "CX-e3dc8b91-3bd8-4791-a84a-0545bb77b0e2"
+  },
+  {
+    "id": "PT083",
+    "sf_campaign_id": "701W500000guulkIAA",
+    "product_id": "P004",
+    "sf_campaign_name": "FR PRDV NRJ TER CEE TRA PUBLIC EXO 28",
+    "xtra_campaign_id": "CX-e32c3d60-694d-48ed-ad5e-0afd102eef88"
+  },
+  {
+    "id": "PT084",
+    "sf_campaign_id": "701W500000guxA8IAI",
+    "product_id": "P004",
+    "sf_campaign_name": "FR PRDV NRJ TER CEE TRA PRIVE EXO 28",
+    "xtra_campaign_id": "CX-e32c3d60-694d-48ed-ad5e-0afd102eef88"
+  },
+  {
+    "id": "PT085",
+    "sf_campaign_id": "701W500000hPg6XIAS",
+    "product_id": "P004",
+    "sf_campaign_name": "FR PRDV NRJ TER CEE TRA RETAIL EXO 28",
+    "xtra_campaign_id": "CX-e32c3d60-694d-48ed-ad5e-0afd102eef88"
+  },
+  {
+    "id": "PT086",
+    "sf_campaign_id": "701W500000h70vdIAA",
+    "product_id": "P004",
+    "sf_campaign_name": "FR PRDV NRJ TER CEE TRA FABRICANT EXO 28",
+    "xtra_campaign_id": "CX-e32c3d60-694d-48ed-ad5e-0afd102eef88"
+  },
+  {
+    "id": "PT087",
+    "sf_campaign_id": "701W500000i0W3QIAU",
+    "product_id": "P004",
+    "sf_campaign_name": "FR PRDV NRJ RESID CEE BAILLEURS EXO 28",
+    "xtra_campaign_id": "CX-0c27b862-2c76-44da-973c-2cf01d507f72"
+  },
+  {
+    "id": "PT088",
+    "sf_campaign_id": "701W500000hnegLIAQ",
+    "product_id": "P004",
+    "sf_campaign_name": "FR PRDV NRJ RESID CEE FONCIERE EXO 28",
+    "xtra_campaign_id": "CX-0c27b862-2c76-44da-973c-2cf01d507f72"
+  },
+  {
+    "id": "PT089",
+    "sf_campaign_id": "701W500000h1SSzIAM",
+    "product_id": "P004",
+    "sf_campaign_name": "FR PRDV NRJ RESID CEE SYND DE COPRO PRIO 1 EXO 28",
+    "xtra_campaign_id": "CX-0c27b862-2c76-44da-973c-2cf01d507f72"
+  },
+  {
+    "id": "PT090",
+    "sf_campaign_id": "701W500000iopCeIAI",
+    "product_id": "P004",
+    "sf_campaign_name": "FR PRDV NRJ TER CEE CDP VE EXO 28",
+    "xtra_campaign_id": "CX-0c27b862-2c76-44da-973c-2cf01d507f72"
+  },
+  {
+    "id": "PT091",
+    "sf_campaign_id": "701W500000gzIvtIAE",
+    "product_id": "P004",
+    "sf_campaign_name": "FR PRDV NRJ TER CEE RRC DIRECT EXO 28",
+    "xtra_campaign_id": "CX-0c27b862-2c76-44da-973c-2cf01d507f72"
+  },
+  {
+    "id": "PT092",
+    "sf_campaign_id": "701W500000gzUxAIAU",
+    "product_id": "P004",
+    "sf_campaign_name": "FR PRDV NRJ TER CEE RRC INDIRECT EXO 28",
+    "xtra_campaign_id": "CX-0c27b862-2c76-44da-973c-2cf01d507f72"
+  },
+  {
+    "id": "PT093",
+    "sf_campaign_id": "701W500000hDLibIAG",
+    "product_id": "P004",
+    "sf_campaign_name": "FR PRDV NRJ TER CEE SDE EXO 28",
+    "xtra_campaign_id": "CX-0c27b862-2c76-44da-973c-2cf01d507f72"
+  },
+  {
+    "id": "PT094",
+    "sf_campaign_id": "701W500000hW0YpIAK",
+    "product_id": "P015",
+    "sf_campaign_name": "FR TAX LEASE ES SUBSIDIARY EXO 27",
+    "xtra_campaign_id": "CX-145b7c68-a8b1-4764-8b33-b0241b38118c"
+  }
+]

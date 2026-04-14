@@ -1,0 +1,62 @@
+[
+  {
+    "id": "P001",
+    "name": "FORMATION"
+  },
+  {
+    "id": "P002",
+    "name": "CIR"
+  },
+  {
+    "id": "P003",
+    "name": "DECARBONATION"
+  },
+  {
+    "id": "P004",
+    "name": "CEE"
+  },
+  {
+    "id": "P005",
+    "name": "ENERGIE"
+  },
+  {
+    "id": "P006",
+    "name": "Contribution sociale de solidarité des sociétés (C3S)"
+  },
+  {
+    "id": "P007",
+    "name": "Optimisation des Assurances Des Personnes (Mutuelles et Prévoyance)"
+  },
+  {
+    "id": "P008",
+    "name": "Charges sociales"
+  },
+  {
+    "id": "P009",
+    "name": "Maîtrise des Achats \"Transport\" (envoi de colis, produits, matériel)"
+  },
+  {
+    "id": "P010",
+    "name": "Audit Recovery (Marché Lucratif)"
+  },
+  {
+    "id": "P011",
+    "name": "Stratégie climatique & Contribution carbone"
+  },
+  {
+    "id": "P012",
+    "name": "Valorisation des revenus issus de la propriété intellectuelle (IP BOX)"
+  },
+  {
+    "id": "P013",
+    "name": "Fiscalité locale"
+  },
+  {
+    "id": "P014",
+    "name": "Achat Interim"
+  },
+  {
+    "id": "P015",
+    "name": "TAX LEASE ESPAGNE"
+  }
+]

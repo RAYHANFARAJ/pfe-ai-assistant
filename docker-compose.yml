@@ -1,0 +1,35 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    container_name: pfe_backend
+    env_file:
+      - ./env_files/backend.env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./pfe-backend:/app
+    networks:
+      - pfe_network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    container_name: pfe_frontend
+    env_file:
+      - ./env_files/frontend.env
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./pfe-frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - pfe_network
+
+networks:
+  pfe_network:
+    driver: bridge
