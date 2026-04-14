@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+
+# Logs
+logs/
+*.log
+
+# Output data
+scripts/output/
+
+# Env
+.env
+
+# Docker
+*.pid
+
+# VSCode
+.vscode/
+
+# Node
+node_modules/
+
