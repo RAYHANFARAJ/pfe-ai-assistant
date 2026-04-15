@@ -76,21 +76,61 @@ class XtraReferenceService(AbstractElasticsearchService):
         cleaned_title = normalize_text(title)
         return cleaned_title if cleaned_title else "UNKNOWN_PRODUCT"
 
+    def normalize_answer_type(self, answer_type: Optional[str]) -> str:
+        raw = (answer_type or "").strip().lower()
+
+        mapping = {
+            "bool": "yes_no",
+            "boolean": "yes_no",
+            "yes/no": "yes_no",
+            "yes_no": "yes_no",
+            "radio": "single_choice",
+            "select": "single_choice",
+            "single_choice": "single_choice",
+            "checkbox": "multiple_choice",
+            "multi_choice": "multiple_choice",
+            "multiple_choice": "multiple_choice",
+            "number": "numeric",
+            "numeric": "numeric",
+            "float": "numeric",
+            "integer": "numeric",
+            "int": "numeric",
+            "text": "text",
+            "string": "text",
+            "free_text": "text",
+            "date": "date",
+        }
+
+        return mapping.get(raw, raw if raw else "unknown")
+
     def build_agent_question_text(
         self,
         question_text: str,
         answer_type: Optional[str],
         unit: Optional[str],
-        can_pass: bool,
     ) -> str:
         question = strip_html(question_text).rstrip(" ?.")
+        normalized_type = self.normalize_answer_type(answer_type)
+
         parts = [f"Critère à évaluer : {question}."]
 
-        if answer_type:
-            parts.append(f"Type de réponse attendu : {answer_type}.")
+        if normalized_type == "yes_no":
+            parts.append("Réponse attendue : yes or no.")
+        elif normalized_type == "single_choice":
+            parts.append("Réponse attendue : one value from a predefined list.")
+        elif normalized_type == "multiple_choice":
+            parts.append("Réponse attendue : one or more values from a predefined list.")
+        elif normalized_type == "numeric":
+            parts.append("Réponse attendue : a numeric value.")
+        elif normalized_type == "date":
+            parts.append("Réponse attendue : a date value.")
+        elif normalized_type == "text":
+            parts.append("Réponse attendue : a short text value.")
+        else:
+            parts.append(f"Réponse attendue : {normalized_type}.")
+
         if unit:
             parts.append(f"Unité attendue : {unit}.")
-        parts.append("Question passable." if can_pass else "Question non passable.")
 
         return " ".join(parts)
 
@@ -185,16 +225,15 @@ class XtraReferenceService(AbstractElasticsearchService):
                 "label": strip_html(question.get("text", "")),
                 "label_normalized": slugify(strip_html(question.get("text", ""))),
                 "agent_prompt": self.build_agent_question_text(
-                    question_text=question.get("text", ""),
-                    answer_type=question.get("answer_type"),
-                    unit=question.get("unit"),
-                    can_pass=bool(question.get("can_pass", False)),
-                ),
+                question_text=question.get("text", ""),
+                answer_type=question.get("answer_type"),
+                unit=question.get("unit"),
+),
                 "expected_output": "",
                 "product_id": product_info["id"],
                 "campaign_id": campaign_id,
                 "quiz_id": question.get("quiz_id"),
-                "answer_type": question.get("answer_type"),
+                "answer_type": self.normalize_answer_type(question.get("answer_type")),
                 "can_pass": bool(question.get("can_pass", False)),
                 "redirection_id": question.get("default_redirection"),
                 "order": int(question.get("order", 0) or 0),
