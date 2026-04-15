@@ -21,3 +21,4 @@ scripts/output/
 # Node
 node_modules/
 
+pfe-backend/.env
