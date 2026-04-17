@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     index_xtra_campaign: str
     index_xtra_question: str
     index_xtra_choice: str
+    index_account: str
 
     request_timeout: int = 60
     default_search_size: int = 1000
@@ -17,7 +18,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        # .env.local (if present) overrides .env — use it for local dev without VPN
+        env_file=[".env", ".env.local"],
         env_file_encoding="utf-8",
         extra="ignore",
     )
