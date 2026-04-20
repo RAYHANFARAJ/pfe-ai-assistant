@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 76" width="300" height="76">
+  <!-- Background: exact Leyton dark navy #0A2D4A -->
+  <rect width="300" height="76" rx="5" ry="5" fill="#060E1A"/>
+
+  <!-- Single text with tspan — exact Leyton orange #E8622C -->
+  <text x="20" y="52"
+    font-family="'Arial Black', 'Franklin Gothic Heavy', Arial, sans-serif"
+    font-size="34" font-weight="900" letter-spacing="1">
+    <tspan fill="#FFFFFF">SE</tspan><tspan fill="#E8622C">LL</tspan><tspan fill="#FFFFFF">YNX</tspan><tspan fill="#E8622C">.</tspan>
+  </text>
+
+  <!-- Tagline -->
+  <text x="21" y="68"
+    font-family="Arial, Helvetica, sans-serif"
+    font-size="7.5" font-weight="400" letter-spacing="4.5"
+    fill="#FFFFFF" opacity="0.38">QUALIFY SMARTER</text>
+</svg>

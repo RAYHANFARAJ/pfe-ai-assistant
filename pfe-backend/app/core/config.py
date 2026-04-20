@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,11 +13,20 @@ class Settings(BaseSettings):
     index_xtra_choice: str
     index_account: str
 
+    openai_api_key: Optional[str] = None
+    openai_model: str = "gpt-4o-mini"
+
+    ollama_base_url: str = "http://localhost:11434/v1"
+    ollama_model: str = "llama3.2:1b"
+
     request_timeout: int = 60
     default_search_size: int = 1000
     max_question_size: int = 5000
     max_choice_size: int = 5000
     log_level: str = "INFO"
+
+    keycloak_url: str = "http://localhost:8080"
+    keycloak_realm: str = "sellynx"
 
     model_config = SettingsConfigDict(
         # .env.local (if present) overrides .env — use it for local dev without VPN

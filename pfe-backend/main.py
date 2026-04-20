@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import contextlib
+import logging
+from typing import Optional
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -12,12 +14,15 @@ from app.mcp.server import mcp
 from app.services.scoring.scoring_pipeline_service import ScoringPipelineService
 from app.services.elasticsearch.account_reference_service import AccountReferenceService
 from app.tools.es_client_tool import ESClientTool
+from app.core.auth import TokenData, optional_auth, require_auth
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="PFE Assistant API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -39,7 +44,7 @@ async def es_connection_error_handler(request: Request, exc: ESConnectionError):
         status_code=503,
         content={
             "error": "elasticsearch_unavailable",
-            "detail": "Elasticsearch cluster is unreachable. Check host/network configuration.",
+            "detail": "Elasticsearch cluster is unreachable.",
         },
     )
 
@@ -53,7 +58,7 @@ async def generic_error_handler(request: Request, exc: Exception):
 
 
 # ------------------------------------------------------------------
-# Core routes
+# Public routes (no auth required)
 # ------------------------------------------------------------------
 
 @app.get("/")
@@ -66,35 +71,52 @@ def health():
     return {"status": "ok"}
 
 
+# ------------------------------------------------------------------
+# Authenticated routes
+# ------------------------------------------------------------------
+
+@app.get("/api/me")
+def me(user: TokenData = Depends(require_auth)):
+    """Returns the identity of the currently authenticated user."""
+    return {
+        "sub":        user.sub,
+        "name":       user.name,
+        "email":      user.email,
+        "username":   user.username,
+        "given_name": user.given_name,
+        "roles":      user.roles,
+    }
+
+
 @app.post("/api/scoring/agent-demo")
-def run_agent_demo(payload: ScoringRequest):
+def run_agent_demo(
+    payload: ScoringRequest,
+    user: TokenData = Depends(require_auth),
+):
+    logger.info("Scoring request by %s (%s): client=%s product=%s",
+                user.name, user.email, payload.client_id, payload.product_id)
     service = ScoringPipelineService()
     return service.run(client_id=payload.client_id, product_id=payload.product_id)
 
 
 @app.post("/api/accounts/build-reference")
-def build_account_reference():
+def build_account_reference(user: TokenData = Depends(require_auth)):
     service = AccountReferenceService()
     return service.run()
 
 
 # ------------------------------------------------------------------
-# Debug routes  (use these to diagnose ES connectivity & data issues)
+# Debug routes (auth optional — works with or without token)
 # ------------------------------------------------------------------
 
 @app.get("/api/debug/es/health")
-def debug_es_health():
-    """Check Elasticsearch connectivity."""
+def debug_es_health(user: Optional[TokenData] = Depends(optional_auth)):
     tool = ESClientTool()
     return tool.es_health()
 
 
 @app.get("/api/debug/es/client/{client_id}")
-def debug_es_client(client_id: str):
-    """
-    Run all lookup strategies for a client_id and return raw hit counts +
-    field lists. Use this to understand why client data is not being retrieved.
-    """
+def debug_es_client(client_id: str, user: Optional[TokenData] = Depends(optional_auth)):
     tool = ESClientTool()
     return tool.debug_lookup(client_id)
 

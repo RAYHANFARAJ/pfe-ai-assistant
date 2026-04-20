@@ -11,6 +11,9 @@ scripts/output/
 
 # Env
 .env
+.env.local
+*.env.local
+pfe-backend/.env.local
 
 # Docker
 *.pid
