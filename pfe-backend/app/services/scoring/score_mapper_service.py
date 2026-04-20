@@ -1,14 +1,10 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class ScoreMapperService:
-    """
-    Maps a criterion's extracted value to a score by evaluating it against
-    the criterion's choices, which carry condition bodies and score weights.
-    """
 
     # ------------------------------------------------------------------
     # Public interface
@@ -21,19 +17,32 @@ class ScoreMapperService:
         extracted_value: Any = None,
         choices: Optional[List[Dict[str, Any]]] = None,
     ) -> int:
+        score, _ = self.map_criterion_score_with_choice(
+            predicted_answer=predicted_answer,
+            extracted_value=extracted_value,
+            choices=choices or [],
+        )
+        return score
+
+    def map_criterion_score_with_choice(
+        self,
+        predicted_answer: str,
+        extracted_value: Any = None,
+        choices: Optional[List[Dict[str, Any]]] = None,
+    ) -> Tuple[int, Optional[Dict[str, Any]]]:
+        """Return (score, matched_choice). matched_choice carries redirection_id and is_blocking."""
         choices = choices or []
         if not choices:
-            return 0
+            return 0, None
 
-        # Use the richer extracted_value when available; fall back to predicted_answer
         value_to_test = extracted_value if extracted_value is not None else predicted_answer
 
         for choice in choices:
             condition = choice.get("condition") or {}
             if self._evaluate_condition(value_to_test, condition):
-                return choice.get("score", 0)
+                return choice.get("score", 0), choice
 
-        return 0
+        return 0, None
 
     def get_max_score(self, choices: List[Dict[str, Any]]) -> int:
         """Highest score reachable by a non-blocking choice."""
@@ -44,10 +53,23 @@ class ScoreMapperService:
             default=0,
         )
 
-    def aggregate(self, criteria_results: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def aggregate(
+        self,
+        criteria_results: List[Dict[str, Any]],
+        blocking_triggered: bool = False,
+    ) -> Dict[str, Any]:
+        # If any blocking choice was hit, the entire scoring resets to zero
+        if blocking_triggered:
+            return {
+                "total_score": 0,
+                "max_score": sum(item.get("max_score", 0) for item in criteria_results),
+                "normalized_score": 0.0,
+                "eligibility_status": "not_eligible",
+                "blocking_triggered": True,
+            }
+
         total_score = sum(item.get("score", 0) for item in criteria_results)
         max_score = sum(item.get("max_score", 0) for item in criteria_results)
-
         normalized_score = round(total_score / max_score, 2) if max_score else 0.0
 
         if normalized_score >= 0.75:
@@ -62,12 +84,11 @@ class ScoreMapperService:
             "max_score": max_score,
             "normalized_score": normalized_score,
             "eligibility_status": status,
+            "blocking_triggered": False,
         }
 
     # ------------------------------------------------------------------
     # Condition evaluator
-    # Handles the JS-style condition bodies stored in choice.condition.body:
-    #   "return a < 500"   "return a >= 500"   "return a == 'oui'"
     # ------------------------------------------------------------------
 
     def _evaluate_condition(self, value: Any, condition: Dict[str, Any]) -> bool:
@@ -83,9 +104,7 @@ class ScoreMapperService:
         if m:
             op, operand = m.group(1), float(m.group(2))
             try:
-                val = float(
-                    str(value).replace(",", ".").replace(" ", "")
-                )
+                val = float(str(value).replace(",", ".").replace(" ", ""))
             except (TypeError, ValueError):
                 return False
             return {
@@ -97,7 +116,7 @@ class ScoreMapperService:
                 "!=": val != operand,
             }.get(op, False)
 
-        # String equality: "return a == 'oui'"  /  "return a == \"oui\""
+        # String equality: "return a == 'OUI'" — case-insensitive
         m = re.match(r'return\s+a\s*==\s*[\'"](.+?)[\'"]', body)
         if m:
             operand = m.group(1).strip().lower()
