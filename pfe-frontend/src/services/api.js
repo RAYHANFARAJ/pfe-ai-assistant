@@ -29,9 +29,10 @@ api.interceptors.response.use(
 )
 
 export default {
-  health:      ()               => api.get('/api/health'),
-  runScoring:  (clientId, productId) =>
-    api.post('/api/scoring/agent-demo', { client_id: clientId, product_id: productId }),
-  esHealth:    ()               => api.get('/api/debug/es/health'),
-  debugClient: (clientId)       => api.get(`/api/debug/es/client/${clientId}`),
+  health:         ()                    => api.get('/api/health'),
+  listProducts:   ()                    => api.get('/api/products'),
+  searchAccounts: (q)                   => api.get('/api/accounts/search', { params: { q } }),
+  runScoring:     (clientId, productId) => api.post('/api/scoring/agent-demo', { client_id: clientId, product_id: productId }),
+  esHealth:       ()                    => api.get('/api/debug/es/health'),
+  debugClient:    (clientId)            => api.get(`/api/debug/es/client/${clientId}`),
 }
