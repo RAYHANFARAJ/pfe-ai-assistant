@@ -56,6 +56,43 @@ class ESClientTool:
         )
         return None
 
+    def search(self, query: str, size: int = 10) -> List[Dict[str, Any]]:
+        """Search clients by name or ID. Returns a list of lightweight summaries."""
+        q = query.strip()
+        if not q:
+            es_query: Dict[str, Any] = {"match_all": {}}
+        else:
+            es_query = {
+                "bool": {
+                    "should": [
+                        {"term":  {"Id.keyword": q}},
+                        {"match": {"Name": {"query": q, "fuzziness": "AUTO"}}},
+                        {"wildcard": {"Name.keyword": {"value": f"*{q}*", "case_insensitive": True}}},
+                    ],
+                    "minimum_should_match": 1,
+                }
+            }
+        try:
+            res = self.es.search(
+                index=self.index,
+                query=es_query,
+                size=size,
+                source=["Id", "Name", "Industry", "Website", "NumberOfEmployees"],
+            )
+            return [
+                {
+                    "client_id":   h["_source"].get("Id"),
+                    "client_name": h["_source"].get("Name"),
+                    "sector":      h["_source"].get("Industry") or "Unknown",
+                    "website":     h["_source"].get("Website"),
+                    "employees":   h["_source"].get("NumberOfEmployees"),
+                }
+                for h in res.get("hits", {}).get("hits", [])
+            ]
+        except Exception as exc:
+            logger.error("Search failed: %s", exc)
+            return []
+
     def debug_lookup(self, client_id: str) -> Dict[str, Any]:
         """Return per-strategy hit counts/field lists for diagnostics."""
         results: Dict[str, Any] = {}

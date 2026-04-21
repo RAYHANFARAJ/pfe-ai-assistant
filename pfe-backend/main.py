@@ -109,6 +109,29 @@ def build_account_reference(user: TokenData = Depends(require_auth)):
 # Debug routes (auth optional — works with or without token)
 # ------------------------------------------------------------------
 
+@app.get("/api/products")
+def list_products(user: TokenData = Depends(require_auth)):
+    """Return all available products with criteria count."""
+    from app.tools.es_reference_tool import ESReferenceTool
+    ref = ESReferenceTool()
+    products = ref._load_json(ref.products_path)
+    all_criteria = ref._load_json(ref.criteria_path)
+    counts = {}
+    for c in all_criteria:
+        counts[c["product_id"]] = counts.get(c["product_id"], 0) + 1
+    return [{"id": p["id"], "name": p["name"], "criteria_count": counts.get(p["id"], 0)} for p in products]
+
+
+@app.get("/api/accounts/search")
+def search_accounts(
+    q: str = "",
+    user: TokenData = Depends(require_auth),
+):
+    """Search clients by name or ID — returns up to 10 matches."""
+    tool = ESClientTool()
+    return tool.search(q)
+
+
 @app.get("/api/debug/es/health")
 def debug_es_health(user: Optional[TokenData] = Depends(optional_auth)):
     tool = ESClientTool()
