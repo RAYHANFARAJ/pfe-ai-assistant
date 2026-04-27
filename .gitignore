@@ -11,6 +11,9 @@ scripts/output/
 
 # Env
 .env
+.env.local
+*.env.local
+pfe-backend/.env.local
 
 # Docker
 *.pid
@@ -22,3 +25,11 @@ scripts/output/
 node_modules/
 
 pfe-backend/.env
+
+# local secrets
+pfe-backend/.env.local
+.env
+.env.local
+*.env
+__pycache__/
+linkedin_session.json

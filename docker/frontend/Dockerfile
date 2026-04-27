@@ -1,9 +1,9 @@
-FROM node:22-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
 COPY pfe-frontend/package*.json /app/
-RUN npm install
+RUN npm ci
 
 COPY pfe-frontend /app
 
