@@ -70,10 +70,14 @@ class ChunkEmbedderService:
             return []
 
         meta = {
-            "source_type": source.get("type", ""),
-            "source_url": source.get("url"),
+            "source_type":  source.get("type", ""),
+            "source_url":   source.get("url"),
             "source_label": source.get("label", ""),
         }
+
+        # Document sources (PDFs) use larger chunks so Q&A pairs are not split.
+        # Each section from the loader already holds one complete Q&A block.
+        is_document = source.get("type") == "document"
 
         sections: List[Dict] = source.get("sections") or []
         if sections:
@@ -81,7 +85,13 @@ class ChunkEmbedderService:
             for sec in sections:
                 heading = sec.get("heading", "")
                 body = sec.get("text", "").strip()
-                if body:
+                if not body:
+                    continue
+                if is_document:
+                    # Keep the whole section as one chunk — never split PDF Q&A blocks
+                    if len(body) >= MIN_CHUNK_CHARS:
+                        chunks.append({**meta, "text": body, "section": heading, "embedding": None})
+                else:
                     chunks.extend(self._chunk_text(body, meta, section=heading))
             if chunks:
                 return [c for c in chunks if not self._is_junk(c["text"])]

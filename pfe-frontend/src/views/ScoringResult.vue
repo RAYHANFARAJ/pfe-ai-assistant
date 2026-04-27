@@ -52,6 +52,42 @@
           <SummaryCard :summary="result.summary" :client="result.client" :product="result.product" />
         </div>
 
+        <!-- Data Quality -->
+        <div v-if="result.data_quality" class="card quality-card">
+          <h2 class="card-title">Data Quality Report</h2>
+          <div class="quality-grid">
+            <div class="quality-stat">
+              <div class="qs-label">Reliability</div>
+              <div class="qs-value" :class="reliabilityClass(result.data_quality.reliability_score)">
+                {{ Math.round(result.data_quality.reliability_score * 100) }}%
+              </div>
+            </div>
+            <div class="quality-stat">
+              <div class="qs-label">Coverage</div>
+              <div class="qs-value">{{ Math.round(result.data_quality.coverage_rate * 100) }}%</div>
+            </div>
+            <div class="quality-stat">
+              <div class="qs-label">Avg Confidence</div>
+              <div class="qs-value">{{ Math.round(result.data_quality.avg_confidence * 100) }}%</div>
+            </div>
+            <div class="quality-stat tiers">
+              <div class="qs-label">Answer Tiers</div>
+              <div class="tier-pills">
+                <span class="tier-pill high">HIGH {{ result.data_quality.tier_counts.HIGH }}</span>
+                <span class="tier-pill medium">MED {{ result.data_quality.tier_counts.MEDIUM }}</span>
+                <span class="tier-pill low">LOW {{ result.data_quality.tier_counts.LOW }}</span>
+                <span class="tier-pill unknown">? {{ result.data_quality.tier_counts.UNKNOWN }}</span>
+              </div>
+            </div>
+          </div>
+          <ul v-if="result.data_quality.flags?.length" class="quality-flags">
+            <li v-for="(flag, i) in result.data_quality.flags" :key="i"
+                :class="flag.startsWith('Consistency error') ? 'flag-error' : 'flag-warn'">
+              {{ flag }}
+            </li>
+          </ul>
+        </div>
+
         <!-- Criteria results -->
         <div class="card">
           <h2 class="card-title">Criteria Breakdown <span class="count">{{ result.criteria_results?.length }}</span></h2>
@@ -85,6 +121,12 @@ import SummaryCard from '../components/SummaryCard.vue'
 import CriterionRow from '../components/CriterionRow.vue'
 
 const props = defineProps({ clientId: String, productId: String })
+
+function reliabilityClass(score) {
+  if (score >= 0.75) return 'rel-high'
+  if (score >= 0.50) return 'rel-medium'
+  return 'rel-low'
+}
 
 const loading = ref(true)
 const error = ref('')
@@ -136,6 +178,26 @@ onMounted(async () => {
 .client-links { display: flex; gap: 10px; flex-wrap: wrap; }
 .link-chip { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; background: #F4F6FA; color: #0A2D4A; text-decoration: none; font-size: 13px; font-weight: 500; border-radius: 8px; border: 1px solid #DDE3EC; transition: all 0.15s; }
 .link-chip:hover { background: #E8622C; color: #fff; border-color: #E8622C; }
+
+/* Data quality */
+.quality-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
+.quality-stat { background: #F4F6FA; border-radius: 10px; padding: 14px 16px; }
+.qs-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: #8A9BB0; font-weight: 600; margin-bottom: 6px; }
+.qs-value { font-size: 24px; font-weight: 800; color: #0A2D4A; }
+.rel-high { color: #16A34A; }
+.rel-medium { color: #D97706; }
+.rel-low { color: #DC2626; }
+.tiers .qs-value { font-size: 14px; }
+.tier-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.tier-pill { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px; }
+.tier-pill.high { background: #DCFCE7; color: #15803D; }
+.tier-pill.medium { background: #FEF9C3; color: #92400E; }
+.tier-pill.low { background: #FEF3C7; color: #B45309; }
+.tier-pill.unknown { background: #F1F5F9; color: #64748B; }
+.quality-flags { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.quality-flags li { font-size: 13px; padding: 8px 12px; border-radius: 8px; }
+.flag-error { background: #FEF2F2; color: #B91C1C; border-left: 3px solid #EF4444; }
+.flag-warn { background: #FFFBEB; color: #92400E; border-left: 3px solid #F59E0B; }
 
 /* Criteria list */
 .criteria-list { display: flex; flex-direction: column; gap: 10px; }

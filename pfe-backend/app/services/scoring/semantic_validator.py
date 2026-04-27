@@ -27,7 +27,7 @@ _NUMERIC_BLOCKLIST: List[str] = [
     r"\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}",    # date pattern
     r"\+\d{6,}",                               # phone number
     r"\b\d{2}[\s\-\.]\d{2}[\s\-\.]\d{2}",    # French phone  06 12 34 56
-    r"€|£|\$|USD|EUR",                         # currency
+    r"€|£|\$|\bUSD\b|\bEUR\b",                 # currency — word boundaries prevent false matches on French words like "collaborateurs", "ingénieurs", "directeur"
     r"prix|price|cost|tarif|forfait",
     r"tél(?:éphone)?|phone|mobile|fax",
     r"code\s+postal|zip",
@@ -47,11 +47,11 @@ _DOMAIN_ANCHORS: List[Tuple[List[str], List[str]]] = [
     # People / headcount
     (
         ["personnes", "people", "effectif", "salarié", "employé", "collaborateur",
-         "staff", "workforce", "équipe", "team", "travaill", "member"],
+         "staff", "workforce", "équipe", "team", "travaill", "member", "employee"],
         ["personnes?", "people", "effectifs?", "salariés?", "employés?",
          "collaborateurs?", "staff", "workforce", "équipe", "team",
          "travaill\w*", "membres?", "individus?", "chercheurs?", "ingénieurs?",
-         "experts?", "ressources?"],
+         "experts?", "ressources?", "employees?", "headcount", "workforce"],
     ),
     # Project / R&D
     (

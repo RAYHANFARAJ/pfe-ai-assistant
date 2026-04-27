@@ -1,8 +1,5 @@
-from app.core.config import settings
+# Backward-compatibility shim.
+# The canonical definition lives in app.modules.elasticsearch.indexes.
+from app.modules.elasticsearch.indexes import ElasticsearchIndexes
 
-
-class ElasticsearchIndexes:
-    XTRA_CAMPAIGN = settings.index_xtra_campaign
-    XTRA_QUESTION = settings.index_xtra_question
-    XTRA_CHOICE = settings.index_xtra_choice
-    ACCOUNT = "account"
+__all__ = ["ElasticsearchIndexes"]

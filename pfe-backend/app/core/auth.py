@@ -48,13 +48,14 @@ _JWKS_TTL = 300  # seconds
 
 
 def _jwks_url() -> str:
-    return (
-        f"{settings.keycloak_url}/realms/{settings.keycloak_realm}"
-        "/protocol/openid-connect/certs"
-    )
+    # Use internal URL for fetching JWKS when running inside Docker
+    # (keycloak_url may be localhost which is not reachable from inside a container)
+    base = settings.keycloak_internal_url or settings.keycloak_url
+    return f"{base}/realms/{settings.keycloak_realm}/protocol/openid-connect/certs"
 
 
 def _issuer() -> str:
+    # Must match the 'iss' claim in the token — always the public-facing URL
     return f"{settings.keycloak_url}/realms/{settings.keycloak_realm}"
 
 

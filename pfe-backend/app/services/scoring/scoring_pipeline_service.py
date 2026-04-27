@@ -4,12 +4,14 @@ from typing import Any, Dict, List, Optional
 
 from app.services.scoring.agent_orchestrator_service import AgentOrchestratorService
 from app.services.scoring.score_mapper_service import ScoreMapperService
+from app.services.scoring.data_quality_service import DataQualityService, quality_tier
 
 
 class ScoringPipelineService:
     def __init__(self) -> None:
         self.agent = AgentOrchestratorService()
         self.score_mapper = ScoreMapperService()
+        self.quality_checker = DataQualityService()
 
     def run(self, client_id: str, product_id: str) -> Dict[str, Any]:
         orchestration_result = self.agent.run(client_id=client_id, product_id=product_id)
@@ -44,9 +46,11 @@ class ScoringPipelineService:
         )
 
         summary = self.score_mapper.aggregate(scored_criteria, blocking_triggered)
+        quality_report = self.quality_checker.evaluate(scored_criteria)
         client_data = orchestration_result["client_data"] or {}
 
         return {
+            "demo_mode": orchestration_result.get("demo_mode", False),
             "trace": orchestration_result["trace"],
             "client": {
                 "client_id": client_data.get("client_id"),
@@ -63,6 +67,7 @@ class ScoringPipelineService:
                 "criteria_count": len(scored_criteria),
                 **summary,
             },
+            "data_quality": quality_report.model_dump(),
             "criteria_results": scored_criteria,
         }
 
@@ -103,6 +108,7 @@ class ScoringPipelineService:
                 and selected_choice.get("is_blocking", False)
             )
 
+            found = (item["predicted_answer"] or "unknown") != "unknown"
             scored_criteria.append({
                 "criterion_id": item["criterion_id"],
                 "label": item["label"],
@@ -110,6 +116,7 @@ class ScoringPipelineService:
                 "predicted_answer": item["predicted_answer"],
                 "extracted_value": item.get("extracted_value"),
                 "confidence": item["confidence"],
+                "quality_tier": quality_tier(item["confidence"], found),
                 "justification": item["justification"],
                 "evidence": item.get("evidence"),
                 "sources": item["sources"],

@@ -57,47 +57,86 @@
         <!-- Results -->
         <div v-else-if="result" class="result-content">
 
-          <!-- Summary header -->
-          <div class="result-header">
-            <div class="result-client">
-              <div class="client-avatar">{{ initials }}</div>
-              <div>
-                <div class="client-name">{{ result.client?.client_name }}</div>
-                <div class="client-meta">
-                  <span class="sector-tag">{{ result.client?.sector }}</span>
-                  <a v-if="result.client?.website" :href="result.client.website" target="_blank" class="meta-link">🌐 Website</a>
-                  <a v-if="result.client?.linkedin" :href="result.client.linkedin" target="_blank" class="meta-link">💼 LinkedIn</a>
+          <section class="hero-card">
+            <div class="hero-main">
+              <div class="hero-eyebrow">Qualification Result</div>
+              <div class="result-client">
+                <div class="client-avatar">{{ initials }}</div>
+                <div>
+                  <div class="client-name">{{ result.client?.client_name }}</div>
+                  <div class="client-subtitle">
+                    Analysis for {{ result.product?.product_name || result.product?.product_id }}
+                  </div>
+                  <div class="client-meta">
+                    <span v-if="result.client?.sector" class="sector-tag">{{ result.client?.sector }}</span>
+                    <span class="meta-text">Client ID {{ result.client?.client_id || clientId }}</span>
+                    <span class="meta-text">Product ID {{ result.product?.product_id || productId }}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div class="eligibility-badge" :class="eligibilityClass">
-              {{ eligibilityLabel }}
-            </div>
-          </div>
 
-          <!-- Score bar -->
-          <div class="score-overview">
-            <div class="score-numbers">
-              <span class="score-big">{{ result.summary?.total_score }}</span>
-              <span class="score-sep">/</span>
-              <span class="score-max">{{ result.summary?.max_score }}</span>
-              <span class="score-pct">{{ Math.round((result.summary?.normalized_score || 0) * 100) }}%</span>
+              <div class="hero-links">
+                <a v-if="result.client?.website" :href="result.client.website" target="_blank" class="hero-link">Website</a>
+                <a v-if="result.client?.linkedin" :href="result.client.linkedin" target="_blank" class="hero-link">LinkedIn</a>
+              </div>
             </div>
-            <div class="score-track">
-              <div class="score-fill" :style="{ width: Math.round((result.summary?.normalized_score || 0) * 100) + '%', background: scoreColor }"></div>
-            </div>
-          </div>
 
-          <!-- Criteria list -->
-          <div class="criteria-section">
-            <div class="criteria-header">
-              Criteria Breakdown
+            <div class="hero-score">
+              <div class="eligibility-badge" :class="eligibilityClass">
+                {{ eligibilityLabel }}
+              </div>
+              <div class="score-pair">
+                <span class="score-big">{{ result.summary?.total_score }}</span>
+                <span class="score-sep">/</span>
+                <span class="score-max">{{ result.summary?.max_score }}</span>
+              </div>
+              <div class="score-pct">{{ normalizedPct }}%</div>
+              <div class="score-track">
+                <div class="score-fill" :style="{ width: normalizedPct + '%', background: scoreColor }"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="metrics-grid">
+            <article class="metric-card">
+              <div class="metric-label">Overall Score</div>
+              <div class="metric-value">{{ normalizedPct }}%</div>
+              <div class="metric-foot">Based on {{ result.summary?.criteria_count || result.criteria_results?.length || 0 }} evaluated criteria</div>
+            </article>
+            <article class="metric-card">
+              <div class="metric-label">Average Confidence</div>
+              <div class="metric-value">{{ averageConfidence }}%</div>
+              <div class="metric-foot">Mean confidence across all criterion answers</div>
+            </article>
+            <article class="metric-card">
+              <div class="metric-label">Evidence Sources</div>
+              <div class="metric-value">{{ sourceCount }}</div>
+              <div class="metric-foot">Distinct source types used in this run</div>
+            </article>
+            <article class="metric-card">
+              <div class="metric-label">Top Source Mix</div>
+              <div class="metric-sources">
+                <span v-for="source in sourceSummary" :key="source.label" class="source-pill">
+                  {{ source.label }} {{ source.count }}
+                </span>
+                <span v-if="!sourceSummary.length" class="metric-foot">No source metadata available</span>
+              </div>
+            </article>
+          </section>
+
+          <section class="criteria-panel">
+            <div class="section-head">
+              <div>
+                <div class="section-title">Criteria Breakdown</div>
+                <div class="section-subtitle">Each row includes answer, confidence, supporting evidence, and scoring logic.</div>
+              </div>
               <span class="criteria-count">{{ result.criteria_results?.length }}</span>
             </div>
-            <CriterionRow v-for="c in result.criteria_results" :key="c.criterion_id" :criterion="c" />
-          </div>
+            <div class="criteria-list">
+              <CriterionRow v-for="c in result.criteria_results" :key="c.criterion_id" :criterion="c" />
+            </div>
+          </section>
 
-          <!-- Trace -->
           <details class="trace">
             <summary>Pipeline trace</summary>
             <div class="trace-body">
@@ -226,6 +265,37 @@ const scoreColor = computed(() => {
   if (pct >= 0.4) return '#f59e0b'
   return '#E8622C'
 })
+const normalizedPct = computed(() => Math.round((result.value?.summary?.normalized_score || 0) * 100))
+const averageConfidence = computed(() => {
+  const items = result.value?.criteria_results || []
+  if (!items.length) return 0
+  const total = items.reduce((sum, item) => sum + (item.confidence || 0), 0)
+  return Math.round((total / items.length) * 100)
+})
+const sourceBreakdown = computed(() => {
+  const items = result.value?.criteria_results || []
+  const counts = new Map()
+  items.forEach((item) => {
+    const type = item.evidence?.source_type
+    if (!type) return
+    counts.set(type, (counts.get(type) || 0) + 1)
+  })
+  return Array.from(counts.entries())
+    .map(([type, count]) => ({ type, count, label: sourceTypeLabel(type) }))
+    .sort((a, b) => b.count - a.count)
+})
+const sourceSummary = computed(() => sourceBreakdown.value.slice(0, 4))
+const sourceCount = computed(() => sourceBreakdown.value.length)
+
+function sourceTypeLabel(type) {
+  if (type === 'crm') return 'CRM'
+  if (type === 'website') return 'Website'
+  if (type === 'linkedin') return 'LinkedIn'
+  if (type === 'news') return 'News'
+  if (type === 'crm_description') return 'Description'
+  if (type === 'document') return 'Document'
+  return 'Other'
+}
 
 function useExample(ex) {
   clientId.value = ex.id
@@ -321,15 +391,20 @@ async function runScoring() {
 /* Result content */
 .result-content { display: flex; flex-direction: column; gap: 20px; }
 
-/* Result header */
-.result-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; background: rgba(255,255,255,0.03); border: 1px solid rgba(232,98,44,0.15); border-radius: 14px; }
+/* Hero */
+.hero-card { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.9fr); gap: 20px; padding: 24px 26px; background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(10,45,74,0.32)); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; box-shadow: 0 24px 60px rgba(3,7,18,0.22); }
+.hero-main { display: flex; flex-direction: column; gap: 18px; }
+.hero-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.8px; color: rgba(255,255,255,0.42); }
 .result-client { display: flex; align-items: center; gap: 14px; }
 .client-avatar { width: 44px; height: 44px; background: linear-gradient(135deg, #E8622C, #ff8c5a); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800; flex-shrink: 0; }
-.client-name { font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 6px; }
-.client-meta { display: flex; align-items: center; gap: 10px; }
-.sector-tag { padding: 3px 10px; background: rgba(232,98,44,0.15); border-radius: 99px; font-size: 11px; color: #E8622C; font-weight: 600; }
-.meta-link { font-size: 12px; color: rgba(255,255,255,0.45); text-decoration: none; }
-.meta-link:hover { color: #E8622C; }
+.client-name { font-size: 26px; font-weight: 750; color: #fff; margin-bottom: 6px; }
+.client-subtitle { font-size: 14px; color: rgba(255,255,255,0.58); margin-bottom: 10px; }
+.client-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sector-tag { padding: 4px 11px; background: rgba(232,98,44,0.15); border-radius: 99px; font-size: 11px; color: #ffd4c2; font-weight: 700; border: 1px solid rgba(232,98,44,0.18); }
+.meta-text { font-size: 12px; color: rgba(255,255,255,0.4); }
+.hero-links { display: flex; gap: 10px; flex-wrap: wrap; }
+.hero-link { display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.78); text-decoration: none; font-size: 13px; font-weight: 600; transition: all 0.2s ease; }
+.hero-link:hover { color: #fff; border-color: rgba(232,98,44,0.35); background: rgba(232,98,44,0.09); }
 
 /* Eligibility */
 .eligibility-badge { padding: 8px 18px; border-radius: 99px; font-size: 13px; font-weight: 700; }
@@ -338,19 +413,31 @@ async function runScoring() {
 .eligibility-badge.not-eligible { background: rgba(232,98,44,0.15); color: #fb8c5a; border: 1px solid rgba(232,98,44,0.3); }
 
 /* Score overview */
-.score-overview { padding: 20px 24px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; }
-.score-numbers { display: flex; align-items: baseline; gap: 6px; margin-bottom: 12px; }
-.score-big { font-size: 40px; font-weight: 800; color: #fff; }
+.hero-score { display: flex; flex-direction: column; justify-content: space-between; gap: 18px; padding: 20px; background: rgba(6,14,26,0.42); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; }
+.score-pair { display: flex; align-items: baseline; gap: 6px; }
+.score-big { font-size: 52px; font-weight: 800; color: #fff; line-height: 1; }
 .score-sep { font-size: 24px; color: rgba(255,255,255,0.3); }
 .score-max { font-size: 24px; color: rgba(255,255,255,0.4); }
-.score-pct { margin-left: 12px; padding: 4px 12px; background: rgba(232,98,44,0.15); border-radius: 99px; font-size: 14px; font-weight: 700; color: #E8622C; }
-.score-track { height: 8px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; }
+.score-pct { width: fit-content; padding: 6px 12px; background: rgba(232,98,44,0.15); border-radius: 99px; font-size: 14px; font-weight: 700; color: #ffd4c2; border: 1px solid rgba(232,98,44,0.18); }
+.score-track { height: 10px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; }
 .score-fill { height: 100%; border-radius: 99px; transition: width 0.8s ease; }
 
+/* Metrics */
+.metrics-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.metric-card { padding: 18px 18px 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; }
+.metric-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.38); font-weight: 700; margin-bottom: 10px; }
+.metric-value { font-size: 32px; font-weight: 800; color: #fff; line-height: 1; margin-bottom: 10px; }
+.metric-foot { font-size: 12px; color: rgba(255,255,255,0.44); line-height: 1.5; }
+.metric-sources { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; min-height: 32px; }
+.source-pill { padding: 6px 10px; border-radius: 999px; background: rgba(10,45,74,0.62); border: 1px solid rgba(255,255,255,0.08); font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.72); }
+
 /* Criteria */
-.criteria-section { display: flex; flex-direction: column; gap: 8px; }
-.criteria-header { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; display: flex; align-items: center; gap: 10px; }
-.criteria-count { background: rgba(232,98,44,0.15); color: #E8622C; font-size: 11px; padding: 2px 8px; border-radius: 99px; }
+.criteria-panel { display: flex; flex-direction: column; gap: 16px; padding: 22px 24px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 18px; }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.section-title { font-size: 18px; font-weight: 700; color: #fff; }
+.section-subtitle { font-size: 13px; color: rgba(255,255,255,0.46); margin-top: 4px; }
+.criteria-count { background: rgba(232,98,44,0.15); color: #ffd4c2; font-size: 12px; padding: 5px 10px; border-radius: 999px; border: 1px solid rgba(232,98,44,0.18); font-weight: 700; }
+.criteria-list { display: flex; flex-direction: column; gap: 10px; }
 
 /* Trace */
 .trace { padding: 16px 20px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; }
@@ -393,4 +480,28 @@ async function runScoring() {
 .chips-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .mini-spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 1200px) {
+  .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hero-card { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 980px) {
+  .layout { flex-direction: column; padding-bottom: 180px; }
+  .context-panel { width: 100%; border-left: none; border-top: 1px solid rgba(255,255,255,0.05); padding: 20px 40px; }
+}
+
+@media (max-width: 720px) {
+  .navbar { padding: 14px 20px; }
+  .results-area { padding: 24px 20px; }
+  .context-panel { padding: 20px; }
+  .metrics-grid { grid-template-columns: 1fr; }
+  .client-name { font-size: 22px; }
+  .hero-card, .criteria-panel { padding: 18px; }
+  .section-head { align-items: flex-start; flex-direction: column; }
+  .input-bar { padding: 12px 16px 18px; }
+  .input-form { flex-wrap: wrap; padding: 12px; }
+  .input-small { max-width: none; width: 100%; border-left: none; padding-left: 0; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); }
+  .send-btn { width: 100%; border-radius: 12px; }
+}
 </style>

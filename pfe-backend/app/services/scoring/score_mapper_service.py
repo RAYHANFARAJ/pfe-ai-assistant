@@ -37,7 +37,11 @@ class ScoreMapperService:
 
         value_to_test = extracted_value if extracted_value is not None else predicted_answer
 
-        for choice in choices:
+        # Evaluate highest-scoring non-blocking choices first so that
+        # overlapping conditions (e.g. "> 25" and "> 50") always award
+        # the maximum deserved score rather than the first match.
+        ranked = sorted(choices, key=lambda c: c.get("score", 0), reverse=True)
+        for choice in ranked:
             condition = choice.get("condition") or {}
             if self._evaluate_condition(value_to_test, condition):
                 return choice.get("score", 0), choice

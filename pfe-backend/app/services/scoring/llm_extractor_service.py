@@ -10,13 +10,15 @@ from openai import OpenAI
 from pydantic import BaseModel
 
 from app.core.config import settings
+from app.services.scoring.semantic_validator import SemanticValidator
 
 logger = logging.getLogger(__name__)
+_semantic_validator = SemanticValidator()
 
 # Maximum characters from all passages combined sent to the LLM.
-# Reduced from 1200→900: each call is ~25% faster, quality loss negligible
-# because the retriever already pre-selects the 3 most relevant passages.
-MAX_CONTEXT_CHARS = 1200
+# Raised to 4000 to accommodate full PDF sections (Q&A blocks can be 1200 chars each).
+# gpt-4o-mini supports 128K tokens so this adds negligible cost (~$0.0001 per call).
+MAX_CONTEXT_CHARS = 4000
 
 # ── JSON output schemas ──────────────────────────────────────────────────────
 
@@ -167,6 +169,7 @@ class LLMExtractorService:
 
         # Build combined context from top passages (capped at MAX_CONTEXT_CHARS)
         context_blocks: List[str] = []
+        used_passages: List[Dict[str, Any]] = []
         total = 0
         for p in passages:
             block = (
@@ -178,16 +181,18 @@ class LLMExtractorService:
             if total + len(block) > MAX_CONTEXT_CHARS:
                 break
             context_blocks.append(block)
+            used_passages.append(p)
             total += len(block)
 
         context = "\n\n---\n\n".join(context_blocks)
 
-        # Pick the best source metadata for the result (highest similarity)
-        best = passages[0]
+        # Source metadata is resolved AFTER extraction, based on which passage
+        # actually contains the evidence sentence (see _resolve_source below).
+        # Use top passage as initial fallback.
         base = dict(
-            source_type=best.get("source_type", ""),
-            source_url=best.get("source_url"),
-            source_label=best.get("source_label", ""),
+            source_type=passages[0].get("source_type", ""),
+            source_url=passages[0].get("source_url"),
+            source_label=passages[0].get("source_label", ""),
         )
 
         try:
@@ -210,9 +215,13 @@ class LLMExtractorService:
                 logger.error("LLM extraction error | criterion=%s | error=%s", criterion_label[:60], exc)
             return ExtractionResult(reasoning=reason, **base)
 
-        # Attach clickable URL
-        if result.evidence_sentence and not result.clickable_url:
-            result.clickable_url = _build_clickable_url(best, result.evidence_sentence)
+        # Resolve source attribution to the passage that actually contains the evidence
+        if result.evidence_sentence:
+            evidence_source = _resolve_source(result.evidence_sentence, used_passages)
+            result.source_type  = evidence_source.get("source_type", result.source_type)
+            result.source_url   = evidence_source.get("source_url",  result.source_url)
+            result.source_label = evidence_source.get("source_label", result.source_label)
+            result.clickable_url = _build_clickable_url(evidence_source, result.evidence_sentence)
 
         # Business-rule validation (modifies in place)
         result = self._validate(result, criterion_label, unit, answer_type, choices)
@@ -233,19 +242,43 @@ class LLMExtractorService:
             "Sanity-check: reject if the number is implausibly large (>50 000 for headcount, >100 for percentage)."
         )
 
+        # Build threshold hint if choices provide only range conditions (< X or >= X)
+        # This lets the LLM reason from qualitative statements like "several tens of millions"
+        threshold_hint = ""
+        if choices:
+            thresholds = []
+            for ch in choices:
+                body = (ch.get("condition") or {}).get("body", "")
+                import re as _re
+                m = _re.search(r"([<>]=?)\s*([\d.]+)", body)
+                if m:
+                    thresholds.append(f"{m.group(1)} {m.group(2)} {unit or ''} → {ch.get('score',0)} pts")
+            if thresholds:
+                threshold_hint = (
+                    f"\nSCORING THRESHOLDS (use these to interpret qualitative amounts):\n"
+                    + "\n".join(f"  • {t}" for t in thresholds)
+                    + "\nIf the passages give a qualitative amount (e.g. 'several tens of millions'), "
+                    "convert it to the most defensible numeric estimate and use it as extracted_value. "
+                    "Set confidence to 0.55 and note the estimation in reasoning.\n"
+                )
+
         prompt = (
             f"You extract company data for a French R&D/innovation eligibility assessment.\n\n"
             f"CRITERION: {label}\n"
             f"UNIT: {unit or 'not specified'}\n\n"
             f"PASSAGES (pre-selected as most relevant):\n\"\"\"\n{context}\n\"\"\"\n\n"
-            f"TASK: Find the single number that directly and explicitly quantifies '{label}'.\n\n"
+            f"TASK: Find the single number that directly and explicitly quantifies '{label}'.\n"
+            f"If no exact number exists but the passage gives a clear qualitative range "
+            f"(e.g. 'plusieurs dizaines de millions', 'more than 100', 'under 50'), "
+            f"extract the most conservative defensible estimate.\n\n"
             f"STRICT REJECTION RULES — set found=false, extracted_value=null, is_valid=false if:\n"
             f"• The number comes from a page title, navigation, footer, copyright, or meta text\n"
             f"• The number is a price, phone number, postal code, year, SIRET/SIREN, or registration ID\n"
             f"• The number is used in a sentence unrelated to '{label}'\n"
             f"• The evidence_sentence is empty, shorter than 10 words, or identical to the criterion\n"
-            f"• No sentence in the passages explicitly quantifies '{label}'\n"
-            f"{bounds_hint}\n\n"
+            f"• No sentence in the passages quantifies or estimates '{label}' in any way\n"
+            f"{bounds_hint}"
+            f"{threshold_hint}\n"
             f"The evidence_sentence field MUST be a verbatim copy of an existing sentence in PASSAGES.\n"
             f"Do NOT paraphrase or construct a sentence. If you cannot find one, set found=false.\n\n"
             f"Respond with ONLY valid JSON — no markdown, no explanation outside the JSON:\n"
@@ -368,7 +401,7 @@ class LLMExtractorService:
 
         # ── Evidence quality ────────────────────────────────────────────────
         ev = result.evidence_sentence.strip()
-        if not ev or len(ev.split()) < 5:
+        if not ev or len(ev.split()) < 3:
             return self._invalidate(result, "Evidence sentence too short or missing.")
 
         # Hard reject: UI/noise phrases inside the evidence sentence
@@ -386,13 +419,21 @@ class LLMExtractorService:
             return self._invalidate(result, "Evidence appears to recycle the criterion text.")
 
         # ── Domain relevance check ───────────────────────────────────────────
+        # For single/multiple choice criteria, the topic-match check below is
+        # sufficient — skip the narrow HR/R&D keyword list so that evidence
+        # about emballage, énergie, gaz, fiscal, etc. is not wrongly rejected.
         ev_lower = ev.lower()
-        has_domain_keyword = any(kw in ev_lower for kw in _DOMAIN_SUBSTRINGS)
-        if not has_domain_keyword:
-            return self._invalidate(
-                result,
-                "Evidence contains no domain-relevant keywords (HR, recruitment, training, R&D, etc.).",
-            )
+        if answer_type not in ("single_choice", "multiple_choice"):
+            has_domain_keyword = any(kw in ev_lower for kw in _DOMAIN_SUBSTRINGS)
+            # Also accept if the criterion's own content words appear in the evidence
+            criterion_content_words = {
+                w for w in re.sub(r"[^\w]", " ", label_lower).split() if len(w) > 4
+            }
+            if not has_domain_keyword and not any(w in ev_lower for w in criterion_content_words):
+                return self._invalidate(
+                    result,
+                    "Evidence contains no domain-relevant keywords.",
+                )
 
         # ── Numeric-specific rules ──────────────────────────────────────────
         if answer_type == "numeric":
@@ -421,6 +462,18 @@ class LLMExtractorService:
                     result,
                     f"Employee count {val} is outside plausible range (1–500 000).",
                 )
+
+            # ── Semantic context validation (blocklist + domain anchors) ────
+            ok, sem_reason = _semantic_validator.validate_numeric(
+                criterion_label=label,
+                value=val,
+                match_text=ev,
+                match_start=0,
+                match_end=len(ev),
+                full_text=ev,
+            )
+            if not ok:
+                return self._invalidate(result, sem_reason)
 
         # ── Choice-specific rules ───────────────────────────────────────────
         if answer_type in ("single_choice", "multiple_choice"):
@@ -525,17 +578,53 @@ def _safe_float(val: Any) -> float:
         return 0.0
 
 
+def _resolve_source(evidence_sentence: str, passages: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Return the passage most likely to contain the evidence sentence.
+    Word-overlap scoring: the passage whose text shares the most words
+    with the evidence sentence wins. Falls back to the top passage.
+    """
+    if not passages:
+        return {}
+    ev_words = set(re.sub(r"[^\w\s]", " ", evidence_sentence.lower()).split())
+    if not ev_words:
+        return passages[0]
+    best, best_score = passages[0], 0
+    for p in passages:
+        p_words = set(re.sub(r"[^\w\s]", " ", p.get("text", "").lower()).split())
+        score = len(ev_words & p_words)
+        if score > best_score:
+            best_score, best = score, p
+    return best
+
+
 def _build_clickable_url(passage: Dict[str, Any], evidence: str) -> Optional[str]:
+    """
+    Build a URL that opens the source page and jumps directly to the evidence text.
+
+    Uses the Text Fragment API (#:~:text=…) supported by Chrome, Edge, and
+    most modern browsers. When the user clicks the link, the browser scrolls to
+    and highlights the exact sentence in yellow — no manual searching needed.
+    """
     url = passage.get("source_url") or ""
     if not url:
         return None
-    anchors: Dict[str, str] = passage.get("anchors", {})
-    words = set(evidence.lower().split())
-    best_anchor, best_score = "", 0
-    for aid, atext in anchors.items():
-        score = len(words & set(atext.lower().split()))
-        if score > best_score:
-            best_score, best_anchor = score, aid
-    if best_anchor and best_score >= 3:
-        return f"{url.rstrip('/')}#{best_anchor}"
-    return f"{url}?{urlencode({'highlight': evidence[:80]})}"
+
+    # Take the most distinctive 10-word slice from the evidence as the fragment
+    words = evidence.strip().split()
+    # Use first 8 words as prefix and last 4 words as suffix for precise targeting
+    prefix = " ".join(words[:8]) if words else ""
+    suffix = " ".join(words[-4:]) if len(words) > 8 else ""
+
+    if not prefix:
+        return url
+
+    from urllib.parse import quote
+    fragment_prefix = quote(prefix, safe="")
+    if suffix and suffix != prefix:
+        fragment = f"{fragment_prefix},{quote(suffix, safe='')}"
+    else:
+        fragment = fragment_prefix
+
+    base = url.split("#")[0].split("?")[0]
+    return f"{base}#:~:text={fragment}"

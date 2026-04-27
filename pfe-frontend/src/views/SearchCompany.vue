@@ -28,9 +28,11 @@
                 @keydown.esc="showDropdown = false"
                 placeholder="Search by name or Salesforce ID…"
                 class="search-input"
+                :class="{ 'id-mode': isSalesforceId(searchQuery) }"
                 autocomplete="off"
               />
               <span v-if="searching" class="input-spin"></span>
+              <span v-else-if="isSalesforceId(searchQuery)" class="id-badge">ID</span>
             </div>
 
             <div v-if="showDropdown && suggestions.length > 0" class="dropdown">
@@ -45,7 +47,7 @@
                 <div class="item-info">
                   <div class="item-name">{{ item.client_name }}</div>
                   <div class="item-meta">
-                    <span class="item-id">{{ item.client_id }}</span>
+                    <span class="item-id" :class="{ 'item-id-match': isSalesforceId(searchQuery) }">{{ item.client_id }}</span>
                     <span v-if="item.sector" class="item-sector">{{ item.sector }}</span>
                     <span v-if="item.employees" class="item-emp">{{ item.employees }} emp.</span>
                   </div>
@@ -60,10 +62,8 @@
         </div>
       </template>
 
-      <!-- ── STEP 2: Product selection ─────────────────────── -->
+      <!-- ── STEP 2: Batch launch ──────────────────────────── -->
       <template v-else-if="step === 2">
-
-        <!-- Client recap bar -->
         <div class="client-bar">
           <div class="client-bar-left">
             <div class="client-avatar-lg">{{ initials(client.client_name) }}</div>
@@ -82,52 +82,66 @@
           </button>
         </div>
 
-        <div class="products-section">
-          <div class="products-header">
-            <div>
-              <div class="products-title">Available Products</div>
-              <div class="products-sub">Select a product to run the AI qualification pipeline</div>
-            </div>
-            <div class="products-count">{{ products.length }} products</div>
+        <div class="batch-launch-card">
+          <div class="batch-launch-icon">
+            <svg width="32" height="32" fill="none" stroke="#E8622C" stroke-width="1.6" viewBox="0 0 24 24">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
           </div>
-
-          <div v-if="loadingProducts" class="products-loading">
-            <span class="spinner"></span> Loading products…
-          </div>
-
-          <div v-else class="products-grid">
-            <div
-              v-for="product in products"
-              :key="product.id"
-              class="product-card"
-              @click="pickProduct(product)"
-            >
-              <div class="product-card-top">
-                <div class="product-icon">
-                  <svg width="18" height="18" fill="none" stroke="#E8622C" stroke-width="1.8" viewBox="0 0 24 24">
-                    <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/>
-                    <polyline points="13 2 13 9 20 9"/>
-                  </svg>
-                </div>
-                <div class="product-id-badge">{{ product.id }}</div>
-              </div>
-              <div class="product-name">{{ product.name }}</div>
-              <div class="product-criteria">{{ product.criteria_count }} criteria</div>
-              <div class="product-cta">
-                Run Scoring
-                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                  <polygon points="5 3 19 12 5 21 5 3"/>
-                </svg>
-              </div>
+          <div class="batch-launch-text">
+            <div class="batch-launch-title">Qualify All Products</div>
+            <div class="batch-launch-sub">
+              The pipeline will crawl <strong>{{ client.client_name }}</strong>'s sources once,
+              then score all {{ products.length || '…' }} products in parallel.
             </div>
+          </div>
+          <button class="batch-btn" @click="runBatchScoring" :disabled="loadingProducts">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            Run All
+          </button>
+        </div>
+
+        <!-- Document upload -->
+        <div class="doc-upload-zone"
+          @dragover.prevent="dragOver = true"
+          @dragleave="dragOver = false"
+          @drop.prevent="onDrop"
+          :class="{ 'drag-active': dragOver }"
+        >
+          <div v-if="!uploadedDocs.length && !uploading" class="doc-upload-empty">
+            <svg width="20" height="20" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.6" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+            <span>Drop PDF documents here or <label class="doc-upload-link">browse<input type="file" accept=".pdf,.txt" multiple @change="onFileSelect" hidden /></label></span>
+            <span class="doc-upload-hint">Optional — the agent will use them as additional sources</span>
+          </div>
+          <div v-else-if="uploadedDocs.length" class="doc-list">
+            <div v-for="(doc, i) in uploadedDocs" :key="i" class="doc-item">
+              <svg width="13" height="13" fill="none" stroke="#4ade80" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+              <span class="doc-name">{{ doc.label }}</span>
+              <span class="doc-size">{{ doc.chars.toLocaleString() }} chars</span>
+              <button class="doc-remove" @click="removeDoc(i)">✕</button>
+            </div>
+            <label class="doc-add-more">+ Add more<input type="file" accept=".pdf,.txt" multiple @change="onFileSelect" hidden /></label>
+          </div>
+          <div v-if="uploading" class="doc-uploading"><span class="input-spin"></span> Extracting text…</div>
+        </div>
+
+        <!-- Product list preview -->
+        <div v-if="products.length" class="products-preview">
+          <div class="preview-label">{{ products.length }} products will be evaluated</div>
+          <div class="preview-chips">
+            <span v-for="p in products" :key="p.id" class="preview-chip">
+              <span class="preview-chip-id">{{ p.id }}</span> {{ p.name }}
+            </span>
           </div>
         </div>
       </template>
 
-      <!-- ── STEP 3: Running / result ───────────────────────── -->
+      <!-- ── STEP 3: Batch running / results ──────────────── -->
       <template v-else-if="step === 3">
 
-        <!-- Client + product recap bar -->
+        <!-- Client recap bar -->
         <div class="client-bar">
           <div class="client-bar-left">
             <div class="client-avatar-lg">{{ initials(client.client_name) }}</div>
@@ -140,20 +154,22 @@
             </div>
           </div>
           <div class="product-pill">
-            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
-            {{ selectedProduct?.name }}
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            Batch qualification
           </div>
-          <button class="change-btn" @click="step = 2">
+          <button class="change-btn" @click="resetToStep1">
             <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
-            Change product
+            New search
           </button>
         </div>
 
-        <!-- Loading state -->
+        <!-- Loading -->
         <div v-if="scoring" class="scoring-loading">
           <div class="scoring-pulse"></div>
           <div class="scoring-steps">
-            <div v-for="(s, i) in loadingSteps" :key="i" class="scoring-step"
+            <div v-for="(s, i) in batchLoadingSteps" :key="i" class="scoring-step"
               :class="{ active: i === currentStep, done: i < currentStep }">
               <span class="step-dot"></span>{{ s }}
             </div>
@@ -163,39 +179,82 @@
         <!-- Error -->
         <div v-else-if="scoreError" class="error-bar">
           ⚠️ {{ scoreError }}
-          <button class="retry-btn" @click="runScoring">Retry</button>
+          <button class="retry-btn" @click="runBatchScoring">Retry</button>
         </div>
 
-        <!-- Result -->
-        <div v-else-if="result" class="result-wrap">
+        <!-- Batch results -->
+        <div v-else-if="batchResult" class="batch-result-wrap">
 
-          <!-- Summary card -->
-          <div class="summary-card">
-            <div class="summary-left">
-              <div class="summary-label">GLOBAL SCORE</div>
-              <div class="summary-score" :class="scoreClass">
-                {{ pct }}<span class="summary-pct">%</span>
-              </div>
-              <div class="summary-bar-track">
-                <div class="summary-bar-fill" :style="{ width: pct + '%', background: scoreColor }"></div>
-              </div>
-              <div class="summary-pts">{{ result.summary?.total_score }} / {{ result.summary?.max_score }} pts</div>
+          <!-- Batch summary header -->
+          <div class="batch-header">
+            <div class="batch-stat">
+              <div class="batch-stat-val">{{ batchResult.batch_summary.total }}</div>
+              <div class="batch-stat-lbl">Products</div>
             </div>
-            <div class="summary-right">
-              <div class="eligibility-badge" :class="eligClass">{{ eligLabel }}</div>
-              <div class="summary-meta">
-                <div class="smeta-row"><span>Criteria evaluated</span><strong>{{ result.summary?.criteria_count }}</strong></div>
-                <div class="smeta-row"><span>Blocking triggered</span><strong>{{ result.summary?.blocking_triggered ? 'Yes' : 'No' }}</strong></div>
-                <div class="smeta-row"><span>Product</span><strong>{{ result.product?.product_name }}</strong></div>
+            <div class="batch-stat success">
+              <div class="batch-stat-val">{{ batchResult.batch_summary.succeeded }}</div>
+              <div class="batch-stat-lbl">Scored</div>
+            </div>
+            <div class="batch-stat" :class="batchResult.batch_summary.failed > 0 ? 'error' : ''">
+              <div class="batch-stat-val">{{ batchResult.batch_summary.failed }}</div>
+              <div class="batch-stat-lbl">Failed</div>
+            </div>
+            <div class="batch-stat">
+              <div class="batch-stat-val">{{ batchResult.batch_summary.duration_seconds }}s</div>
+              <div class="batch-stat-lbl">Duration</div>
+            </div>
+          </div>
+
+          <!-- Per-product result cards -->
+          <div class="batch-products-grid">
+            <div
+              v-for="pr in batchResult.results"
+              :key="pr.product_id"
+              class="batch-product-card"
+              :class="pr.status === 'failed' ? 'card-failed' : batchEligClass(pr)"
+              @click="pr.status === 'success' && openBatchDetail(pr)"
+            >
+              <div class="bpc-top">
+                <span class="bpc-id">{{ pr.product_id }}</span>
+                <span class="bpc-status" :class="pr.status === 'failed' ? 'st-failed' : batchEligClass(pr)">
+                  {{ pr.status === 'failed' ? '✗ Error' : batchEligLabel(pr) }}
+                </span>
+              </div>
+              <div class="bpc-name">{{ pr.product_name }}</div>
+              <div v-if="pr.status === 'success'" class="bpc-score-wrap">
+                <div class="bpc-score-bar">
+                  <div class="bpc-score-fill"
+                    :style="{ width: batchPct(pr) + '%', background: batchScoreColor(pr) }">
+                  </div>
+                </div>
+                <div class="bpc-score-txt">
+                  {{ batchPct(pr) }}<span class="bpc-score-pct">%</span>
+                </div>
+              </div>
+              <div v-else class="bpc-error">{{ pr.error }}</div>
+              <div v-if="pr.status === 'success'" class="bpc-pts">
+                {{ pr.summary?.total_score }} / {{ pr.summary?.max_score }} pts
+                · {{ pr.summary?.criteria_count }} criteria
               </div>
             </div>
           </div>
 
-          <!-- Criteria breakdown -->
-          <div class="criteria-section">
-            <div class="section-title">Criteria Breakdown</div>
+          <!-- Detail drawer for selected product -->
+          <div v-if="selectedBatchProduct" class="batch-detail">
+            <div class="batch-detail-header">
+              <div class="batch-detail-title">
+                {{ selectedBatchProduct.product_name }}
+                <span class="bpc-id">{{ selectedBatchProduct.product_id }}</span>
+              </div>
+              <button class="modal-close" @click="selectedBatchProduct = null">✕</button>
+            </div>
             <div class="criteria-list">
-              <div v-for="c in result.criteria_results" :key="c.criterion_id" class="criterion-row" @click="openDetail(c)">
+              <div
+                v-for="c in selectedBatchProduct.criteria_results"
+                :key="c.criterion_id"
+                class="criterion-row"
+                @click="openDetail(c)"
+              >
                 <div class="cr-left">
                   <div class="cr-label">{{ c.label }}</div>
                   <div class="cr-answer">
@@ -214,20 +273,8 @@
             </div>
           </div>
 
-          <!-- Trace -->
-          <details class="trace">
-            <summary>Pipeline trace</summary>
-            <div class="trace-body">
-              <div v-for="(s,i) in result.trace" :key="i" class="trace-line">
-                <span class="trace-dot"></span>{{ s }}
-              </div>
-            </div>
-          </details>
-
-          <!-- Actions -->
           <div class="result-actions">
-            <button class="action-secondary" @click="step = 2">← Try another product</button>
-            <button class="action-primary" @click="goToRecommendations">View Full Report →</button>
+            <button class="action-secondary" @click="step = 2">← Back</button>
           </div>
         </div>
       </template>
@@ -288,66 +335,112 @@ let debounceTimer = null
 const client          = ref(null)
 const products        = ref([])
 const loadingProducts = ref(false)
+const uploadedDocs    = ref([])
+const uploading       = ref(false)
+const dragOver        = ref(false)
 const selectedProduct = ref(null)
 
 // ── Step 3: scoring ──────────────────────────────────────────
-const scoring      = ref(false)
-const scoreError   = ref('')
-const result       = ref(null)
-const currentStep  = ref(0)
-const detailCriterion = ref(null)
+const scoring              = ref(false)
+const scoreError           = ref('')
+const batchResult          = ref(null)
+const selectedBatchProduct = ref(null)
+const currentStep          = ref(0)
+const detailCriterion      = ref(null)
 
-const loadingSteps = [
-  'Loading product criteria…',
-  'Fetching client data…',
+const batchLoadingSteps = [
+  'Fetching client data from CRM…',
   'Crawling company website…',
-  'Resolving LinkedIn…',
-  'Evaluating criteria with AI…',
-  'Computing final score…',
+  'Resolving LinkedIn profile…',
+  'Fetching recent news…',
+  'Embedding sources…',
+  'Evaluating all products in parallel…',
+  'Computing scores…',
 ]
 
 // ── Page header ──────────────────────────────────────────────
 const pageTitle = computed(() => {
   if (step.value === 1) return 'Search Opportunities'
-  if (step.value === 2) return client.value?.client_name || 'Select Product'
-  return result.value ? 'Scoring Result' : 'Running Analysis…'
+  if (step.value === 2) return client.value?.client_name || 'Qualify Client'
+  return batchResult.value ? 'Batch Results' : 'Running Batch Analysis…'
 })
 const pageSubtitle = computed(() => {
   if (step.value === 1) return 'Find AI qualification scores across your client accounts'
-  if (step.value === 2) return 'Select a product to run the AI qualification pipeline'
-  return `${client.value?.client_name} — ${selectedProduct.value?.name}`
+  if (step.value === 2) return 'Score all products for this client in one batch'
+  if (batchResult.value) {
+    const s = batchResult.value.batch_summary
+    return `${s.succeeded}/${s.total} products scored in ${s.duration_seconds}s`
+  }
+  return `${client.value?.client_name} — qualifying all products…`
 })
 
 // ── Helpers ──────────────────────────────────────────────────
 function initials(name) {
   return (name || '').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() || '?'
 }
-const pct       = computed(() => Math.round((result.value?.summary?.normalized_score || 0) * 100))
-const scoreColor = computed(() => pct.value >= 75 ? '#22c55e' : pct.value >= 40 ? '#f59e0b' : '#E8622C')
-const scoreClass = computed(() => pct.value >= 75 ? 'green' : pct.value >= 40 ? 'amber' : 'orange')
-const eligClass  = computed(() => {
-  const s = result.value?.summary?.eligibility_status
-  return s === 'eligible' ? 'elig-green' : s === 'to_review' ? 'elig-amber' : 'elig-red'
-})
-const eligLabel  = computed(() => {
-  const s = result.value?.summary?.eligibility_status
-  return s === 'eligible' ? '✓ Eligible' : s === 'to_review' ? '~ To Review' : '✗ Not Eligible'
-})
 function confClass(c) {
   const v = c.confidence || 0
   return v >= 0.8 ? 'conf-high' : v >= 0.5 ? 'conf-mid' : 'conf-low'
 }
 function openDetail(c) { detailCriterion.value = c }
-function goToRecommendations() { store.setResult(result.value); router.push('/recommendations') }
+function openBatchDetail(pr) { selectedBatchProduct.value = pr }
+
+// Batch helpers
+function batchPct(pr) {
+  const s = pr.summary
+  return s?.max_score ? Math.round((s.total_score / s.max_score) * 100) : 0
+}
+function batchScoreColor(pr) {
+  const p = batchPct(pr)
+  return p >= 75 ? '#22c55e' : p >= 40 ? '#f59e0b' : '#E8622C'
+}
+function batchEligClass(pr) {
+  const s = pr.summary?.eligibility_status
+  return s === 'eligible' ? 'elig-green' : s === 'to_review' ? 'elig-amber' : 'elig-red'
+}
+function batchEligLabel(pr) {
+  const s = pr.summary?.eligibility_status
+  return s === 'eligible' ? '✓ Eligible' : s === 'to_review' ? '~ To Review' : '✗ Not Eligible'
+}
 
 // ── Step 1: search logic ─────────────────────────────────────
+const SF_ID_RE = /^[a-zA-Z0-9]{15,18}$/
+
+function isSalesforceId(q) {
+  return SF_ID_RE.test(q.trim()) && q.trim().length >= 15
+}
+
 function onInput() {
   highlightedIndex.value = -1
   clearTimeout(debounceTimer)
-  if (!searchQuery.value.trim()) { suggestions.value = []; showDropdown.value = false; return }
-  debounceTimer = setTimeout(fetchSuggestions, 280)
+  const q = searchQuery.value.trim()
+  if (!q) { suggestions.value = []; showDropdown.value = false; return }
+  if (isSalesforceId(q)) {
+    debounceTimer = setTimeout(() => fetchById(q), 150)
+  } else {
+    debounceTimer = setTimeout(fetchSuggestions, 280)
+  }
 }
-async function onFocus() { await fetchSuggestions() }
+async function onFocus() {
+  const q = searchQuery.value.trim()
+  if (q && isSalesforceId(q)) return
+  await fetchSuggestions()
+}
+async function fetchById(id) {
+  searching.value = true; showDropdown.value = false
+  try {
+    const res = await api.searchAccounts(id)
+    const matches = res.data || []
+    if (matches.length === 1) {
+      await pickClient(matches[0])
+    } else if (matches.length > 1) {
+      suggestions.value = matches; showDropdown.value = true
+    } else {
+      suggestions.value = []; showDropdown.value = true
+    }
+  } catch { suggestions.value = [] }
+  finally { searching.value = false }
+}
 async function fetchSuggestions() {
   searching.value = true; showDropdown.value = true
   try {
@@ -379,36 +472,44 @@ async function pickClient(item) {
 }
 
 function resetToStep1() {
-  step.value = 1; client.value = null; result.value = null
+  step.value = 1; client.value = null; batchResult.value = null
   scoreError.value = ''; searchQuery.value = ''; suggestions.value = []
+  selectedBatchProduct.value = null
 }
 
-// ── Step 2: pick product ─────────────────────────────────────
-async function pickProduct(product) {
-  selectedProduct.value = product
+// ── Step 2 → Step 3: launch batch ────────────────────────────
+async function runBatchScoring() {
   step.value = 3
-  await runScoring()
-}
-
-// ── Step 3: run scoring ──────────────────────────────────────
-async function runScoring() {
-  scoring.value = true; scoreError.value = ''; result.value = null; currentStep.value = 0
+  scoring.value = true; scoreError.value = ''; batchResult.value = null; currentStep.value = 0
   const stepTimer = setInterval(() => {
-    if (currentStep.value < loadingSteps.length - 1) currentStep.value++
-  }, 1400)
-  const reportId = store.addPendingReport(client.value.client_id, selectedProduct.value.id)
+    if (currentStep.value < batchLoadingSteps.length - 1) currentStep.value++
+  }, 2000)
   try {
-    const res = await api.runScoring(client.value.client_id, selectedProduct.value.id)
+    const docs = uploadedDocs.value.map(d => ({ label: d.label, text: d.text }))
+    const res = await api.runBatchScoring(client.value.client_id, docs)
     clearInterval(stepTimer)
-    if (res.data.error) { store.failReport(reportId); scoreError.value = res.data.detail || res.data.error; return }
-    store.updateReport(reportId, res.data)
-    result.value = res.data
+    if (res.data.error) { scoreError.value = res.data.detail || res.data.error; return }
+    batchResult.value = res.data
   } catch (e) {
     clearInterval(stepTimer)
-    store.failReport(reportId)
     scoreError.value = e.response?.data?.detail || e.message || 'Unexpected error'
   } finally { scoring.value = false }
 }
+
+// ── Document upload ──────────────────────────────────────
+async function uploadFiles(files) {
+  for (const file of files) {
+    uploading.value = true
+    try {
+      const res = await api.uploadDocument(file)
+      if (res.data.status === 'ok') uploadedDocs.value.push({ label: res.data.label, text: res.data.text, chars: res.data.chars })
+    } catch (e) { console.error('Upload failed:', e) }
+    finally { uploading.value = false }
+  }
+}
+function onFileSelect(e) { uploadFiles([...e.target.files]); e.target.value = '' }
+function onDrop(e) { dragOver.value = false; uploadFiles([...e.dataTransfer.files]) }
+function removeDoc(idx) { uploadedDocs.value.splice(idx, 1) }
 
 onMounted(() => document.addEventListener('mousedown', handleClickOutside))
 onBeforeUnmount(() => document.removeEventListener('mousedown', handleClickOutside))
@@ -431,6 +532,8 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', handleClickOutsi
 .search-input:focus { border-color: rgba(232,98,44,0.5); box-shadow: 0 0 0 3px rgba(232,98,44,0.08); }
 .search-input::placeholder { color: rgba(255,255,255,0.2); }
 .input-spin { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.15); border-top-color: #E8622C; border-radius: 50%; animation: spin 0.7s linear infinite; }
+.search-input.id-mode { border-color: rgba(99,179,237,0.5); box-shadow: 0 0 0 3px rgba(99,179,237,0.08); font-family: monospace; letter-spacing: 0.5px; }
+.id-badge { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 10px; font-weight: 800; letter-spacing: 1px; color: #63b3ed; background: rgba(99,179,237,0.12); border: 1px solid rgba(99,179,237,0.3); padding: 2px 7px; border-radius: 6px; }
 
 .dropdown { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 200; background: #0d1f38; border: 1px solid rgba(232,98,44,0.25); border-radius: 12px; overflow: hidden; box-shadow: 0 16px 48px rgba(0,0,0,0.5); max-height: 300px; overflow-y: auto; }
 .dropdown-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.12s; }
@@ -441,6 +544,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', handleClickOutsi
 .item-name { font-size: 14px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
 .item-meta { display: flex; gap: 8px; flex-wrap: wrap; }
 .item-id { font-size: 11px; color: rgba(255,255,255,0.25); font-family: monospace; }
+.item-id-match { color: #63b3ed; font-weight: 700; }
 .item-sector { font-size: 11px; color: rgba(232,98,44,0.7); }
 .item-emp { font-size: 11px; color: rgba(255,255,255,0.3); }
 .no-results { padding: 20px; color: rgba(255,255,255,0.3); font-size: 13px; text-align: center; }
@@ -541,6 +645,13 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', handleClickOutsi
 .action-secondary { padding: 11px 20px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); font-size: 14px; font-weight: 600; border-radius: 10px; cursor: pointer; transition: all 0.18s; }
 .action-secondary:hover { color: #fff; border-color: rgba(255,255,255,0.2); }
 
+/* ── Demo banner ── */
+.demo-banner { display: flex; gap: 14px; align-items: flex-start; padding: 14px 18px; background: rgba(99,179,237,0.08); border: 1px solid rgba(99,179,237,0.3); border-radius: 12px; }
+.demo-icon { font-size: 22px; flex-shrink: 0; }
+.demo-title { font-size: 13px; font-weight: 700; color: #63b3ed; margin-bottom: 4px; }
+.demo-desc { font-size: 12px; color: rgba(255,255,255,0.45); line-height: 1.6; }
+.demo-desc strong { color: rgba(255,255,255,0.7); }
+
 /* ── Error ── */
 .error-bar { padding: 14px 18px; background: rgba(232,98,44,0.1); border: 1px solid rgba(232,98,44,0.3); border-radius: 10px; color: #fb8c5a; font-size: 13px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .retry-btn { padding: 6px 14px; background: rgba(232,98,44,0.2); border: 1px solid rgba(232,98,44,0.4); border-radius: 7px; color: #E8622C; font-size: 12.5px; cursor: pointer; }
@@ -561,5 +672,79 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', handleClickOutsi
 .modal-link { font-size: 13px; color: #E8622C; text-decoration: none; font-weight: 600; }
 .modal-link:hover { text-decoration: underline; }
 
+
+/* ── Document upload zone ── */
+.doc-upload-zone { border: 1.5px dashed rgba(255,255,255,0.12); border-radius: 12px; padding: 20px 24px; margin-bottom: 16px; transition: all 0.2s; }
+.doc-upload-zone.drag-active { border-color: rgba(232,98,44,0.5); background: rgba(232,98,44,0.05); }
+.doc-upload-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; color: rgba(255,255,255,0.35); font-size: 13px; text-align: center; padding: 8px 0; }
+.doc-upload-link { color: #E8622C; cursor: pointer; text-decoration: underline; }
+.doc-upload-hint { font-size: 11px; color: rgba(255,255,255,0.2); }
+.doc-list { display: flex; flex-direction: column; gap: 8px; }
+.doc-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(74,222,128,0.06); border: 1px solid rgba(74,222,128,0.2); border-radius: 8px; }
+.doc-name { flex: 1; font-size: 13px; color: #fff; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-size { font-size: 11px; color: rgba(255,255,255,0.3); flex-shrink: 0; }
+.doc-remove { background: none; border: none; color: rgba(255,255,255,0.3); cursor: pointer; font-size: 13px; flex-shrink: 0; padding: 0 4px; }
+.doc-remove:hover { color: #f87171; }
+.doc-uploading { display: flex; align-items: center; gap: 8px; font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 8px; }
+.doc-add-more { font-size: 12px; color: rgba(232,98,44,0.7); cursor: pointer; padding: 4px 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Batch launch card (step 2) ── */
+.batch-launch-card { display: flex; align-items: center; gap: 20px; padding: 28px 28px; background: rgba(232,98,44,0.06); border: 1px solid rgba(232,98,44,0.25); border-radius: 16px; margin-bottom: 20px; }
+.batch-launch-icon { width: 60px; height: 60px; background: rgba(232,98,44,0.12); border: 1px solid rgba(232,98,44,0.3); border-radius: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.batch-launch-text { flex: 1; }
+.batch-launch-title { font-size: 18px; font-weight: 800; color: #fff; margin-bottom: 6px; }
+.batch-launch-sub { font-size: 13px; color: rgba(255,255,255,0.45); line-height: 1.6; }
+.batch-launch-sub strong { color: rgba(255,255,255,0.8); }
+.batch-btn { display: flex; align-items: center; gap: 8px; padding: 13px 24px; background: linear-gradient(135deg, #E8622C, #ff7a45); color: #fff; font-size: 14px; font-weight: 700; border: none; border-radius: 12px; cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: all 0.2s; }
+.batch-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(232,98,44,0.4); }
+.batch-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* ── Products preview chips ── */
+.products-preview { padding: 18px 0 0; }
+.preview-label { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.25); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+.preview-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.preview-chip { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 99px; font-size: 12px; color: rgba(255,255,255,0.6); }
+.preview-chip-id { font-size: 10px; font-weight: 700; color: #E8622C; font-family: monospace; }
+
+/* ── Batch result wrap ── */
+.batch-result-wrap { display: flex; flex-direction: column; gap: 22px; }
+
+/* ── Batch summary header ── */
+.batch-header { display: flex; gap: 16px; padding: 20px 24px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; }
+.batch-stat { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+.batch-stat-val { font-size: 28px; font-weight: 900; color: #fff; }
+.batch-stat-lbl { font-size: 11px; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.8px; }
+.batch-stat.success .batch-stat-val { color: #4ade80; }
+.batch-stat.error .batch-stat-val { color: #f87171; }
+
+/* ── Per-product cards grid ── */
+.batch-products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.batch-product-card { padding: 16px 18px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; cursor: pointer; transition: all 0.18s; display: flex; flex-direction: column; gap: 8px; }
+.batch-product-card:hover { background: rgba(232,98,44,0.06); border-color: rgba(232,98,44,0.25); transform: translateY(-1px); }
+.batch-product-card.card-failed { border-color: rgba(248,113,113,0.25); background: rgba(248,113,113,0.04); cursor: default; }
+.batch-product-card.elig-green { border-color: rgba(74,222,128,0.2); }
+.batch-product-card.elig-amber { border-color: rgba(251,191,36,0.2); }
+
+.bpc-top { display: flex; align-items: center; justify-content: space-between; }
+.bpc-id { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.3); font-family: monospace; background: rgba(255,255,255,0.06); padding: 2px 7px; border-radius: 5px; }
+.bpc-status { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; }
+.bpc-status.elig-green { background: rgba(34,197,94,0.12); color: #4ade80; }
+.bpc-status.elig-amber { background: rgba(245,158,11,0.12); color: #fbbf24; }
+.bpc-status.elig-red   { background: rgba(232,98,44,0.12);  color: #E8622C; }
+.bpc-status.st-failed  { background: rgba(248,113,113,0.12); color: #f87171; }
+
+.bpc-name { font-size: 13px; font-weight: 700; color: #fff; line-height: 1.4; }
+.bpc-score-wrap { display: flex; align-items: center; gap: 10px; }
+.bpc-score-bar { flex: 1; height: 4px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; }
+.bpc-score-fill { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
+.bpc-score-txt { font-size: 13px; font-weight: 800; color: #fff; white-space: nowrap; }
+.bpc-score-pct { font-size: 10px; font-weight: 500; }
+.bpc-pts { font-size: 11px; color: rgba(255,255,255,0.3); }
+.bpc-error { font-size: 11.5px; color: #f87171; line-height: 1.5; }
+
+/* ── Batch detail drawer ── */
+.batch-detail { background: rgba(255,255,255,0.02); border: 1px solid rgba(232,98,44,0.2); border-radius: 14px; overflow: hidden; }
+.batch-detail-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.07); }
+.batch-detail-title { font-size: 15px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 10px; }
 </style>

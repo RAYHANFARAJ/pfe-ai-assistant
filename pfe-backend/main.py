@@ -2,19 +2,23 @@ from __future__ import annotations
 
 import contextlib
 import logging
-from typing import Optional
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from elastic_transport import ConnectionError as ESConnectionError
 
+from app.core.auth import TokenData, require_auth
 from app.mcp.server import mcp
+from app.modules import register_modules
 from app.services.scoring.scoring_pipeline_service import ScoringPipelineService
-from app.services.elasticsearch.account_reference_service import AccountReferenceService
-from app.tools.es_client_tool import ESClientTool
-from app.core.auth import TokenData, optional_auth, require_auth
+from app.services.scoring.batch_scoring_service import BatchScoringService
+from app.services.documents.document_extractor import extract_and_store, get_sources
+from fastapi import UploadFile, File
+from typing import List as TList
+
+from fastapi import Depends
 
 logger = logging.getLogger(__name__)
 
@@ -28,11 +32,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ------------------------------------------------------------------
+# Register autonomous modules (each owns its own routes)
+# ------------------------------------------------------------------
 
-class ScoringRequest(BaseModel):
-    client_id: str
-    product_id: str
-
+register_modules(app)
 
 # ------------------------------------------------------------------
 # Global exception handlers
@@ -58,7 +62,7 @@ async def generic_error_handler(request: Request, exc: Exception):
 
 
 # ------------------------------------------------------------------
-# Public routes (no auth required)
+# Infrastructure routes (health + identity — not domain logic)
 # ------------------------------------------------------------------
 
 @app.get("/")
@@ -71,13 +75,8 @@ def health():
     return {"status": "ok"}
 
 
-# ------------------------------------------------------------------
-# Authenticated routes
-# ------------------------------------------------------------------
-
 @app.get("/api/me")
 def me(user: TokenData = Depends(require_auth)):
-    """Returns the identity of the currently authenticated user."""
     return {
         "sub":        user.sub,
         "name":       user.name,
@@ -88,60 +87,83 @@ def me(user: TokenData = Depends(require_auth)):
     }
 
 
+# ------------------------------------------------------------------
+# Scoring — will move to modules/scoring in the next refactor step
+# ------------------------------------------------------------------
+
+class ScoringRequest(BaseModel):
+    client_id: str
+    product_id: str
+
+
+class DocumentPayload(BaseModel):
+    label: str
+    text: str
+
+
+class BatchScoringRequest(BaseModel):
+    client_id: str
+    document_ids: TList[str] = []          # legacy — kept for compat
+    documents: TList[DocumentPayload] = [] # preferred — inline text, no server state
+
+
+@app.post("/api/documents/upload")
+async def upload_document(
+    file: UploadFile = File(...),
+    user: TokenData = Depends(require_auth),
+):
+    """Upload a PDF or text document. Returns a doc_id to pass to /api/scoring/batch."""
+    content = await file.read()
+    try:
+        from app.services.documents.document_extractor import _extract_text, _build_sections
+        text = _extract_text(file.filename or "document", content)
+        if not text.strip():
+            return {"status": "error", "detail": "Could not extract text from file."}
+        return {
+            "status": "ok",
+            "label":   file.filename,
+            "text":    text,
+            "chars":   len(text),
+            "preview": text[:300].strip(),
+        }
+    except Exception as exc:
+        return {"status": "error", "detail": str(exc)}
+
+
+@app.post("/api/scoring/batch")
+def run_batch_scoring(
+    payload: BatchScoringRequest,
+    user: TokenData = Depends(require_auth),
+):
+    """
+    Score all products for a client in one call.
+    Crawls the client's sources once and evaluates every product in parallel.
+    """
+    logger.info(
+        "Batch scoring request by %s (%s): client=%s",
+        user.name, user.email, payload.client_id,
+    )
+    inline_docs = [{"label": d.label, "text": d.text} for d in payload.documents]
+    return BatchScoringService().run_batch(
+        client_id=payload.client_id,
+        document_ids=payload.document_ids,
+        inline_documents=inline_docs,
+    )
+
+
 @app.post("/api/scoring/agent-demo")
 def run_agent_demo(
     payload: ScoringRequest,
     user: TokenData = Depends(require_auth),
 ):
-    logger.info("Scoring request by %s (%s): client=%s product=%s",
-                user.name, user.email, payload.client_id, payload.product_id)
-    service = ScoringPipelineService()
-    return service.run(client_id=payload.client_id, product_id=payload.product_id)
-
-
-@app.post("/api/accounts/build-reference")
-def build_account_reference(user: TokenData = Depends(require_auth)):
-    service = AccountReferenceService()
-    return service.run()
-
-
-# ------------------------------------------------------------------
-# Debug routes (auth optional — works with or without token)
-# ------------------------------------------------------------------
-
-@app.get("/api/products")
-def list_products(user: TokenData = Depends(require_auth)):
-    """Return all available products with criteria count."""
-    from app.tools.es_reference_tool import ESReferenceTool
-    ref = ESReferenceTool()
-    products = ref._load_json(ref.products_path)
-    all_criteria = ref._load_json(ref.criteria_path)
-    counts = {}
-    for c in all_criteria:
-        counts[c["product_id"]] = counts.get(c["product_id"], 0) + 1
-    return [{"id": p["id"], "name": p["name"], "criteria_count": counts.get(p["id"], 0)} for p in products]
-
-
-@app.get("/api/accounts/search")
-def search_accounts(
-    q: str = "",
-    user: TokenData = Depends(require_auth),
-):
-    """Search clients by name or ID — returns up to 10 matches."""
-    tool = ESClientTool()
-    return tool.search(q)
-
-
-@app.get("/api/debug/es/health")
-def debug_es_health(user: Optional[TokenData] = Depends(optional_auth)):
-    tool = ESClientTool()
-    return tool.es_health()
-
-
-@app.get("/api/debug/es/client/{client_id}")
-def debug_es_client(client_id: str, user: Optional[TokenData] = Depends(optional_auth)):
-    tool = ESClientTool()
-    return tool.debug_lookup(client_id)
+    logger.info(
+        "Scoring request by %s (%s): client=%s product=%s",
+        user.name, user.email, payload.client_id, payload.product_id,
+    )
+    return ScoringPipelineService().run(
+        client_id=payload.client_id,
+        product_id=payload.product_id,
+    )
 
 
 # ------------------------------------------------------------------

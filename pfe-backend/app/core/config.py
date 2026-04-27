@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     index_xtra_choice: str
     index_account: str
 
+    linkedin_email:    Optional[str] = None
+    linkedin_password: Optional[str] = None
+    proxycurl_api_key: Optional[str] = None
+
     openai_api_key: Optional[str] = None
     openai_model: str = "gpt-4o-mini"
 
@@ -25,7 +29,8 @@ class Settings(BaseSettings):
     max_choice_size: int = 5000
     log_level: str = "INFO"
 
-    keycloak_url: str = "http://localhost:8080"
+    keycloak_url: str = "http://localhost:8080"          # used for issuer validation (must match token)
+    keycloak_internal_url: Optional[str] = None          # used for JWKS fetch (Docker internal address)
     keycloak_realm: str = "sellynx"
 
     model_config = SettingsConfigDict(

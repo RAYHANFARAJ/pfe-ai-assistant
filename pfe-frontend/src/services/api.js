@@ -29,10 +29,12 @@ api.interceptors.response.use(
 )
 
 export default {
-  health:         ()                    => api.get('/api/health'),
-  listProducts:   ()                    => api.get('/api/products'),
-  searchAccounts: (q)                   => api.get('/api/accounts/search', { params: { q } }),
-  runScoring:     (clientId, productId) => api.post('/api/scoring/agent-demo', { client_id: clientId, product_id: productId }),
-  esHealth:       ()                    => api.get('/api/debug/es/health'),
-  debugClient:    (clientId)            => api.get(`/api/debug/es/client/${clientId}`),
+  health:           ()                    => api.get('/api/health'),
+  listProducts:     ()                    => api.get('/api/products'),
+  searchAccounts:   (q)                   => api.get('/api/accounts/search', { params: { q } }),
+  runScoring:       (clientId, productId) => api.post('/api/scoring/agent-demo', { client_id: clientId, product_id: productId }),
+  runBatchScoring:  (clientId, docs)     => api.post('/api/scoring/batch', { client_id: clientId, documents: docs || [] }, { timeout: 600_000 }),
+  uploadDocument:   (file)               => { const fd = new FormData(); fd.append('file', file); return api.post('/api/documents/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } }) },
+  esHealth:         ()                    => api.get('/api/debug/es/health'),
+  debugClient:      (clientId)            => api.get(`/api/debug/es/client/${clientId}`),
 }
