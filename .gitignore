@@ -33,3 +33,4 @@ pfe-backend/.env.local
 *.env
 __pycache__/
 linkedin_session.json
+.env.local
