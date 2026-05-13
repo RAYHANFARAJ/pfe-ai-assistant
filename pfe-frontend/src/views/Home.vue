@@ -158,7 +158,7 @@ const features = [
 .nav-brand { display: flex; align-items: center; gap: 10px; }
 .nav-icon { width: 34px; height: 34px; background: linear-gradient(135deg, #E8622C, #ff8c5a);
   border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
-.nav-logo { height: 28px; }
+.nav-logo { height: 52px; }
 .nav-tabs { display: flex; gap: 8px; }
 .nav-tab { padding: 8px 20px; border-radius: 8px; font-size: 14px; font-weight: 500;
   text-decoration: none; color: rgba(255,255,255,0.6); border: 1px solid transparent;

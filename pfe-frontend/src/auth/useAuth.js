@@ -167,6 +167,10 @@ export function useAuth() {
     return state.accessToken || null
   }
 
+  function hasRole(role) {
+    return (state.tokenParsed?.realm_access?.roles || []).includes(role)
+  }
+
   return {
     isAuthenticated: computed(() => state.isAuthenticated),
     isInitialized:   computed(() => state.isInitialized),
@@ -174,5 +178,6 @@ export function useAuth() {
     login,
     logout,
     getToken,
+    hasRole,
   }
 }

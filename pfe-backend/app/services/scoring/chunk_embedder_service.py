@@ -99,21 +99,63 @@ class ChunkEmbedderService:
         raw = self._chunk_text(text, meta, section="")
         return [c for c in raw if not self._is_junk(c["text"])]
 
+    def get_embedding(self, text: str) -> Optional[np.ndarray]:
+        """Return a cached chunk embedding, or None on cache miss."""
+        from app.services.cache.embedding_cache import embedding_cache
+        return embedding_cache.get("chunk::" + text)
+
+    def _store_embedding(self, text: str, vec: np.ndarray) -> None:
+        from app.services.cache.embedding_cache import embedding_cache
+        embedding_cache.set("chunk::" + text, vec)
+
     def embed_chunks(self, chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Attach a numpy float32 embedding to each chunk (in-place). Returns chunks."""
+        """
+        Attach a numpy float32 embedding to each chunk (in-place).
+
+        Cache strategy:
+          1. Check in-memory cache for each chunk text.
+          2. Batch-embed only the chunks that are not cached (cache misses).
+          3. Store new embeddings in cache for future reuse.
+        """
         for c in chunks:
             c["embedding"] = None
 
         if not self._available or not chunks:
             return chunks
 
-        texts = [c["text"] for c in chunks]
-        try:
-            embeddings = list(self._model.embed(texts))
-            for chunk, emb in zip(chunks, embeddings):
-                chunk["embedding"] = np.array(emb, dtype=np.float32)
-        except Exception as exc:
-            logger.error("Batch embedding failed: %s", exc)
+        # ── Step 1: separate hits from misses ────────────────────────────────
+        miss_indices: List[int] = []
+        hits = 0
+        for i, c in enumerate(chunks):
+            cached = self.get_embedding(c["text"])
+            if cached is not None:
+                c["embedding"] = cached
+                hits += 1
+            else:
+                miss_indices.append(i)
+
+        if hits:
+            logger.debug(
+                "ChunkEmbedderService: %d/%d chunk embedding(s) served from cache",
+                hits, len(chunks),
+            )
+
+        # ── Step 2: batch-embed only the misses ──────────────────────────────
+        if miss_indices:
+            miss_texts = [chunks[i]["text"] for i in miss_indices]
+            try:
+                embeddings = list(self._model.embed(miss_texts))
+                for idx, emb in zip(miss_indices, embeddings):
+                    vec = np.array(emb, dtype=np.float32)
+                    chunks[idx]["embedding"] = vec
+                    # ── Step 3: store in cache ────────────────────────────────
+                    self._store_embedding(chunks[idx]["text"], vec)
+                logger.debug(
+                    "ChunkEmbedderService: %d new chunk embedding(s) computed and cached",
+                    len(miss_indices),
+                )
+            except Exception as exc:
+                logger.error("Batch embedding failed: %s", exc)
 
         return chunks
 
@@ -122,8 +164,14 @@ class ChunkEmbedderService:
         if not self._available or not self._model:
             return None
         try:
+            from app.services.cache.embedding_cache import embedding_cache
+            cached = embedding_cache.get(query)
+            if cached is not None:
+                return cached
             result = list(self._model.query_embed(query))
-            return np.array(result[0], dtype=np.float32) if result else None
+            vec = np.array(result[0], dtype=np.float32) if result else None
+            embedding_cache.set(query, vec)
+            return vec
         except Exception as exc:
             logger.error("Query embedding failed for %r: %s", query[:60], exc)
             return None
