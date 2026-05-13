@@ -1,370 +1,393 @@
 <template>
-  <AppLayout title="Recommendations" subtitle="AI-powered qualification analysis for your client">
+  <AppLayout title="Recommandations" subtitle="Meilleures opportunités détectées par l'IA sur l'ensemble des clients scorés">
 
-    <!-- No result yet -->
-    <div v-if="!result" class="no-result">
-      <div class="no-icon">
-        <svg width="48" height="48" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" viewBox="0 0 24 24">
-          <path d="M9 17H7a4 4 0 010-8h2" stroke-linecap="round"/><path d="M15 17h2a4 4 0 000-8h-2" stroke-linecap="round"/><line x1="9" y1="12" x2="15" y2="12" stroke-linecap="round"/>
+    <!-- Loading -->
+    <div v-if="loading" class="loading-center">
+      <div class="loading-spinner"></div>
+      <span>Analyse des opportunités en cours…</span>
+    </div>
+
+    <!-- Empty — no scoring done yet -->
+    <div v-else-if="!data || data.stats?.total_scorings === 0" class="empty-state">
+      <div class="empty-icon">
+        <svg width="48" height="48" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.5" viewBox="0 0 24 24">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
         </svg>
       </div>
-      <p class="no-text">No analysis yet.</p>
-      <RouterLink to="/search" class="no-btn">Search a Client</RouterLink>
+      <p class="empty-title">Aucune opportunité détectée</p>
+      <p class="empty-sub">Scorez des clients depuis la page "Search Client" — les meilleures opportunités apparaîtront ici automatiquement.</p>
+      <RouterLink to="/search" class="empty-cta">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Lancer un scoring
+      </RouterLink>
     </div>
 
     <template v-else>
 
-      <!-- Company card -->
-      <div class="company-card">
-        <div class="card-left">
-          <div class="company-logo">{{ initials }}</div>
-          <div class="company-info">
-            <h2 class="company-name">{{ result.client?.client_name }}</h2>
-            <div class="company-meta">
-              <span v-if="result.client?.sector" class="meta-item">
-                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
-                {{ result.client.sector }}
-              </span>
-              <span v-if="result.client?.city || result.client?.country" class="meta-item">
-                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
-                {{ [result.client.city, result.client.country].filter(Boolean).join(', ') }}
-              </span>
-              <span v-if="result.client?.website" class="meta-link">
-                <a :href="result.client.website" target="_blank">
-                  <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
-                  Website
-                </a>
-              </span>
-            </div>
-            <div class="eligibility-badge" :class="eligClass">{{ eligLabel }}</div>
+      <!-- ── KPI Banner ────────────────────────────────────────── -->
+      <div class="kpi-banner">
+        <div class="kpi-card">
+          <div class="kpi-icon blue">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <div>
+            <div class="kpi-val">{{ data.stats.unique_clients }}</div>
+            <div class="kpi-lbl">Clients scorés</div>
           </div>
         </div>
-        <div class="card-score">
-          <div class="score-label">GLOBAL SCORE</div>
-          <div class="score-big" :class="scoreClass">{{ pct }}<span class="score-pct-sm">%</span></div>
-          <div class="score-bar-track">
-            <div class="score-bar-fill" :style="{ width: pct + '%', background: scoreBarColor }"></div>
+        <div class="kpi-card">
+          <div class="kpi-icon green">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div>
+            <div class="kpi-val green">{{ data.stats.eligible_matches }}</div>
+            <div class="kpi-lbl">Correspondances éligibles</div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon amber">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <div>
+            <div class="kpi-val amber">{{ data.stats.to_review_matches }}</div>
+            <div class="kpi-lbl">À examiner</div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon orange">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          </div>
+          <div>
+            <div class="kpi-val">{{ data.stats.unique_products }}</div>
+            <div class="kpi-lbl">Produits évalués</div>
           </div>
         </div>
       </div>
 
-      <!-- Products table -->
-      <div class="table-section">
-        <div class="table-header">
-          <div>
-            <div class="table-title">Product Scoring Results</div>
-            <div class="table-sub">{{ result.criteria_results?.length }} criteria evaluated</div>
-          </div>
-          <button class="detail-toggle-btn" @click="showCriteriaModal = true">
-            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
-            View Criteria Details
-          </button>
+      <!-- ── Tabs ──────────────────────────────────────────────── -->
+      <div class="tabs">
+        <button class="tab" :class="{ active: tab === 'top' }"      @click="tab = 'top'">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          Meilleures opportunités
+        </button>
+        <button class="tab" :class="{ active: tab === 'clients' }"  @click="tab = 'clients'">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+          Par client
+        </button>
+        <button class="tab" :class="{ active: tab === 'products' }" @click="tab = 'products'">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Par produit
+        </button>
+      </div>
+
+      <!-- ── TAB 1 : Top opportunities ─────────────────────────── -->
+      <div v-if="tab === 'top'" class="section">
+        <div class="section-title">
+          Top {{ data.top_matches.length }} opportunités — clients éligibles ou à examiner
         </div>
 
-        <div class="table-wrap">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>PRODUCT</th>
-                <th>SCORE</th>
-                <th>REPORT STATUS</th>
-                <th>ACTION</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr class="table-row">
-                <td class="td-product">
-                  <div class="product-icon">
-                    <svg width="16" height="16" fill="none" stroke="#E8622C" stroke-width="1.8" viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
-                  </div>
-                  <div>
-                    <div class="product-name">{{ result.product?.product_name || result.product?.product_id }}</div>
-                    <div class="product-id">{{ result.product?.product_id }}</div>
-                  </div>
-                </td>
-                <td class="td-score">
-                  <div class="score-row">
-                    <span class="score-pct-text" :class="scoreClass">{{ pct }}%</span>
-                    <div class="progress-track">
-                      <div class="progress-fill" :style="{ width: pct + '%', background: scoreBarColor }"></div>
-                    </div>
-                    <span class="score-pts">{{ result.summary?.total_score }}/{{ result.summary?.max_score }}</span>
-                  </div>
-                </td>
-                <td>
-                  <span class="status-badge st-completed">
-                    <span class="status-dot"></span>
-                    Completed
-                  </span>
-                </td>
-                <td>
-                  <button class="action-btn" @click="showCriteriaModal = true">View Report</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div v-if="data.top_matches.length === 0" class="empty-tab">
+          Aucune opportunité éligible trouvée. Scorez plus de clients.
         </div>
+
+        <div v-else class="opp-list">
+          <div
+            v-for="(m, i) in pagedTop"
+            :key="m.client_id + m.product_id"
+            class="opp-card"
+            :class="m.eligibility"
+          >
+            <div class="opp-rank">{{ i + 1 }}</div>
+
+            <div class="opp-main">
+              <div class="opp-client">
+                <div class="opp-avatar">{{ initials(m.client_name) }}</div>
+                <div>
+                  <div class="opp-name">{{ m.client_name }}</div>
+                  <div class="opp-sector">{{ m.sector }}</div>
+                </div>
+              </div>
+              <div class="opp-arrow">→</div>
+              <div class="opp-product">
+                <div class="opp-product-id">{{ m.product_id }}</div>
+                <div class="opp-product-name">{{ m.product_name }}</div>
+              </div>
+            </div>
+
+            <div class="opp-right">
+              <div class="opp-score-bar">
+                <div class="opp-bar-fill" :style="{ width: Math.round(m.normalized_score * 100) + '%', background: scoreColor(m) }"></div>
+              </div>
+              <div class="opp-score-pct" :style="{ color: scoreColor(m) }">
+                {{ Math.round(m.normalized_score * 100) }}%
+              </div>
+              <span class="elig-badge" :class="m.eligibility">
+                {{ m.eligibility === 'eligible' ? '✓ Éligible' : '~ À revoir' }}
+              </span>
+            </div>
+          </div>
+        </div>
+        <Pagination v-model:page="topPage" v-model:perPage="topPerPage"
+          :total="data.top_matches.length" :per-page-options="[10, 20, 50]" />
+      </div>
+
+      <!-- ── TAB 2 : By client ──────────────────────────────────── -->
+      <div v-if="tab === 'clients'" class="section">
+        <div class="section-title">
+          {{ data.clients.length }} client(s) scoré(s) — classés par nombre de produits éligibles
+        </div>
+        <div class="client-list">
+          <div v-for="c in pagedClients" :key="c.client_id" class="client-card">
+            <div class="cl-header">
+              <div class="opp-avatar large">{{ initials(c.client_name) }}</div>
+              <div class="cl-info">
+                <div class="cl-name">{{ c.client_name }}</div>
+                <div class="cl-sector">{{ c.sector }}</div>
+                <div class="cl-id">{{ c.client_id }}</div>
+              </div>
+              <div class="cl-summary">
+                <span class="cl-pill eligible">{{ c.eligible.length }} éligibles</span>
+                <span class="cl-pill review">{{ c.to_review.length }} à revoir</span>
+                <span class="cl-pill total">{{ c.total }} scorés</span>
+              </div>
+            </div>
+
+            <!-- Eligible products -->
+            <div v-if="c.eligible.length" class="cl-products">
+              <div class="cl-products-label">Produits éligibles</div>
+              <div class="cl-chips">
+                <span v-for="p in c.eligible" :key="p.product_id" class="cl-chip eligible">
+                  {{ p.product_id }} <em>{{ p.score }}%</em>
+                </span>
+              </div>
+            </div>
+
+            <!-- To review -->
+            <div v-if="c.to_review.length" class="cl-products">
+              <div class="cl-products-label review">À examiner</div>
+              <div class="cl-chips">
+                <span v-for="p in c.to_review" :key="p.product_id" class="cl-chip review">
+                  {{ p.product_id }} <em>{{ p.score }}%</em>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <Pagination v-model:page="clientPage" v-model:perPage="clientPerPage"
+          :total="data.clients.length" :per-page-options="[10, 20, 50]" />
+      </div>
+
+      <!-- ── TAB 3 : By product ─────────────────────────────────── -->
+      <div v-if="tab === 'products'" class="section">
+        <div class="section-title">
+          {{ data.by_product.length }} produit(s) évalués — classés par nombre de clients éligibles
+        </div>
+        <div class="product-list">
+          <div v-for="p in pagedProducts" :key="p.product_id" class="product-card">
+            <div class="pc-left">
+              <div class="pc-id">{{ p.product_id }}</div>
+              <div class="pc-name">{{ p.product_name }}</div>
+            </div>
+            <div class="pc-stats">
+              <div class="pc-stat eligible">
+                <div class="pc-val">{{ p.eligible }}</div>
+                <div class="pc-lbl">Éligibles</div>
+              </div>
+              <div class="pc-stat review">
+                <div class="pc-val">{{ p.to_review }}</div>
+                <div class="pc-lbl">À revoir</div>
+              </div>
+              <div class="pc-stat not">
+                <div class="pc-val">{{ p.not_eligible }}</div>
+                <div class="pc-lbl">Non élig.</div>
+              </div>
+              <div class="pc-stat total">
+                <div class="pc-val">{{ p.total }}</div>
+                <div class="pc-lbl">Total</div>
+              </div>
+            </div>
+            <div class="pc-bar-wrap">
+              <div class="pc-bar">
+                <div class="pc-seg eligible" :style="{ width: pct(p.eligible, p.total) + '%' }"></div>
+                <div class="pc-seg review"   :style="{ width: pct(p.to_review, p.total) + '%' }"></div>
+              </div>
+              <span class="pc-pct">{{ Math.round(pct(p.eligible, p.total)) }}%</span>
+            </div>
+          </div>
+        </div>
+        <Pagination v-model:page="productPage" v-model:perPage="productPerPage"
+          :total="data.by_product.length" :per-page-options="[10, 20, 50]" />
       </div>
 
     </template>
-
-    <!-- Criteria detail modal -->
-    <div v-if="showCriteriaModal" class="modal-backdrop" @click.self="showCriteriaModal = false">
-      <div class="modal">
-        <div class="modal-header">
-          <div class="modal-title">Criteria Details — {{ result?.product?.product_name || result?.product?.product_id }}</div>
-          <button class="modal-close" @click="showCriteriaModal = false">✕</button>
-        </div>
-        <div class="modal-body">
-          <div v-for="c in result?.criteria_results" :key="c.criterion_id" class="criterion-card" @click="openCriterion(c)">
-            <div class="cc-left">
-              <div class="cc-name">{{ c.label }}</div>
-              <div class="cc-type">{{ c.answer_type }}</div>
-            </div>
-            <div class="cc-mid">
-              <div class="cc-score-row">
-                <span class="cc-pct" :class="scoreRowClass(c)">{{ c.max_score ? Math.round((c.score / c.max_score) * 100) + '%' : '—' }}</span>
-                <div class="cc-bar-bg">
-                  <div class="cc-bar-fill" :style="{ width: barWidth(c), background: barColor(c) }"></div>
-                </div>
-              </div>
-              <div class="cc-pts">{{ c.score }} / {{ c.max_score }} pts</div>
-            </div>
-            <div class="cc-right">
-              <div class="conf-badge" :class="confClass(c)">{{ Math.round((c.confidence || 0) * 100) }}%</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Criterion detail modal (inside criteria modal) -->
-    <div v-if="selected" class="modal-backdrop" @click.self="selected = null" style="z-index: 210;">
-      <div class="modal">
-        <div class="modal-header">
-          <div class="modal-title">{{ selected.label }}</div>
-          <button class="modal-close" @click="selected = null">✕</button>
-        </div>
-        <div class="modal-body modal-detail">
-          <div class="modal-row"><span class="ml">Answer</span><span class="mv">{{ selected.predicted_answer }}</span></div>
-          <div class="modal-row"><span class="ml">Extracted value</span><span class="mv code">{{ selected.extracted_value ?? '—' }}</span></div>
-          <div class="modal-row"><span class="ml">Confidence</span><span class="mv">{{ Math.round((selected.confidence||0)*100) }}%</span></div>
-          <div class="modal-row"><span class="ml">Score</span><span class="mv">{{ selected.score }} / {{ selected.max_score }}</span></div>
-          <div class="modal-section">
-            <div class="ml mb4">Justification</div>
-            <p class="modal-just">{{ selected.justification }}</p>
-          </div>
-          <div v-if="selected.evidence?.source_url" class="modal-section">
-            <div class="ml mb4">Evidence source</div>
-            <a :href="selected.evidence.source_url" target="_blank" class="ev-link-big">{{ selected.evidence.source_label }} ↗</a>
-            <blockquote v-if="selected.evidence.snippet" class="modal-snippet">{{ selected.evidence.snippet }}</blockquote>
-          </div>
-          <div v-if="selected.choices?.length" class="modal-section">
-            <div class="ml mb4">Choices</div>
-            <div v-for="ch in selected.choices" :key="ch.label" class="choice-row" :class="{ matched: isMatched(ch, selected) }">
-              <span>{{ ch.label }}</span>
-              <span class="choice-pts">{{ ch.is_blocking ? '🚫' : ch.score + ' pts' }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
   </AppLayout>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
-import { useScoringStore } from '../stores/scoring'
+import Pagination from '../components/Pagination.vue'
+import api from '../services/api'
 
-const { state } = useScoringStore()
-const result = computed(() => state.result)
-const selected = ref(null)
-const showCriteriaModal = ref(false)
+const data    = ref(null)
+const loading = ref(false)
+const tab     = ref('top')
 
-const pct = computed(() => Math.round((result.value?.summary?.normalized_score || 0) * 100))
-const initials = computed(() => {
-  const n = result.value?.client?.client_name || ''
-  return n.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() || '?'
+// Pagination state per tab
+const topPage     = ref(1); const topPerPage     = ref(10)
+const clientPage  = ref(1); const clientPerPage  = ref(10)
+const productPage = ref(1); const productPerPage = ref(10)
+
+watch(tab, () => {
+  topPage.value = 1; clientPage.value = 1; productPage.value = 1
 })
 
-const scoreBarColor = computed(() => {
-  const p = (result.value?.summary?.normalized_score || 0)
-  return p >= 0.75 ? '#22c55e' : p >= 0.4 ? '#f59e0b' : '#E8622C'
+const pagedTop = computed(() => {
+  if (!data.value) return []
+  const start = (topPage.value - 1) * topPerPage.value
+  return data.value.top_matches.slice(start, start + topPerPage.value)
+})
+const pagedClients = computed(() => {
+  if (!data.value) return []
+  const start = (clientPage.value - 1) * clientPerPage.value
+  return data.value.clients.slice(start, start + clientPerPage.value)
+})
+const pagedProducts = computed(() => {
+  if (!data.value) return []
+  const start = (productPage.value - 1) * productPerPage.value
+  return data.value.by_product.slice(start, start + productPerPage.value)
 })
 
-const scoreClass = computed(() => {
-  const s = result.value?.summary?.eligibility_status
-  return s === 'eligible' ? 'green' : s === 'to_review' ? 'amber' : 'orange'
-})
+async function load() {
+  loading.value = true
+  try {
+    const res = await api.getRecommendations()
+    data.value = res.data
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loading.value = false
+  }
+}
 
-const eligClass = computed(() => {
-  const s = result.value?.summary?.eligibility_status
-  return s === 'eligible' ? 'elig-green' : s === 'to_review' ? 'elig-amber' : 'elig-red'
-})
+function initials(name) {
+  return (name || '').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() || '?'
+}
 
-const eligLabel = computed(() => {
-  const s = result.value?.summary?.eligibility_status
-  return s === 'eligible' ? '✓ Eligible' : s === 'to_review' ? '~ To Review' : '✗ Not Eligible'
-})
+function scoreColor(m) {
+  const s = m.normalized_score
+  return s >= 0.75 ? '#22c55e' : s >= 0.4 ? '#f59e0b' : '#E8622C'
+}
 
-function barWidth(c) {
-  if (!c.max_score) return '0%'
-  return Math.round((c.score / c.max_score) * 100) + '%'
+function pct(count, total) {
+  return total ? Math.min(100, Math.round((count / total) * 100)) : 0
 }
-function barColor(c) {
-  const p = c.max_score ? c.score / c.max_score : 0
-  return p >= 0.75 ? '#22c55e' : p >= 0.4 ? '#f59e0b' : '#E8622C'
-}
-function scoreRowClass(c) {
-  const p = c.max_score ? c.score / c.max_score : 0
-  return p >= 0.75 ? 'green' : p >= 0.4 ? 'amber' : 'orange'
-}
-function confClass(c) {
-  const v = c.confidence || 0
-  return v >= 0.8 ? 'conf-high' : v >= 0.5 ? 'conf-mid' : 'conf-low'
-}
-function openCriterion(c) { selected.value = c }
-function isMatched(ch, c) {
-  return String(ch.label).toLowerCase() === String(c.predicted_answer).toLowerCase()
-}
+
+onMounted(load)
 </script>
 
 <style scoped>
-/* Empty state */
-.no-result { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 50vh; gap: 16px; text-align: center; }
-.no-text { color: rgba(255,255,255,0.35); font-size: 15px; }
-.no-btn { padding: 10px 22px; background: linear-gradient(135deg, #E8622C, #ff7a45); color: #fff; font-size: 13.5px; font-weight: 700; border-radius: 10px; text-decoration: none; transition: all 0.2s; }
-.no-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(232,98,44,0.35); }
+/* ── Loading / Empty ── */
+.loading-center { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 80px 0; color: rgba(255,255,255,0.4); font-size: 14px; }
+.loading-spinner { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.1); border-top-color: #E8622C; border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty-state { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 80px 20px; text-align: center; }
+.empty-icon { width: 90px; height: 90px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 24px; display: flex; align-items: center; justify-content: center; }
+.empty-title { font-size: 18px; font-weight: 700; color: rgba(255,255,255,0.5); }
+.empty-sub { font-size: 13px; color: rgba(255,255,255,0.3); max-width: 380px; line-height: 1.6; }
+.empty-cta { display: flex; align-items: center; gap: 8px; padding: 10px 22px; background: linear-gradient(135deg, #E8622C, #ff7a45); border-radius: 10px; color: #fff; font-size: 13px; font-weight: 700; text-decoration: none; }
+.empty-tab { text-align: center; padding: 40px; color: rgba(255,255,255,0.3); font-size: 14px; }
 
-/* Company card */
-.company-card {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 24px 28px; margin-bottom: 24px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 16px;
-  gap: 24px;
-}
-.card-left { display: flex; align-items: flex-start; gap: 18px; flex: 1; min-width: 0; }
-.company-logo {
-  width: 54px; height: 54px; border-radius: 14px; flex-shrink: 0;
-  background: linear-gradient(135deg, #1a3a5c, #0d2540);
-  border: 1px solid rgba(255,255,255,0.1);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px; font-weight: 800; color: rgba(255,255,255,0.85);
-}
-.company-info { min-width: 0; }
-.company-name { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.company-meta { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; }
-.meta-item { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: rgba(255,255,255,0.4); }
-.meta-link a { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: #E8622C; text-decoration: none; }
-.meta-link a:hover { text-decoration: underline; }
+/* ── KPI Banner ── */
+.kpi-banner { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+.kpi-card { display: flex; align-items: center; gap: 14px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 18px 20px; }
+.kpi-icon { width: 40px; height: 40px; border-radius: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.kpi-icon.blue   { background: rgba(99,179,237,0.12); color: #63b3ed; }
+.kpi-icon.green  { background: rgba(34,197,94,0.12);  color: #22c55e; }
+.kpi-icon.amber  { background: rgba(245,158,11,0.12); color: #f59e0b; }
+.kpi-icon.orange { background: rgba(232,98,44,0.12);  color: #E8622C; }
+.kpi-val { font-size: 26px; font-weight: 800; color: #fff; line-height: 1.2; }
+.kpi-val.green { color: #22c55e; }
+.kpi-val.amber { color: #f59e0b; }
+.kpi-lbl { font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 2px; }
 
-.eligibility-badge { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 99px; font-size: 12px; font-weight: 700; }
-.elig-green { background: rgba(34,197,94,0.12); color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
-.elig-amber { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); }
-.elig-red { background: rgba(232,98,44,0.12); color: #E8622C; border: 1px solid rgba(232,98,44,0.2); }
+/* ── Tabs ── */
+.tabs { display: flex; gap: 6px; margin-bottom: 20px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 6px; }
+.tab { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 9px 16px; border-radius: 8px; border: none; background: none; color: rgba(255,255,255,0.4); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.18s; }
+.tab:hover { color: rgba(255,255,255,0.7); }
+.tab.active { background: rgba(232,98,44,0.12); color: #fff; border: 1px solid rgba(232,98,44,0.25); }
 
-/* Score panel */
-.card-score { text-align: right; flex-shrink: 0; min-width: 160px; }
-.score-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: rgba(255,255,255,0.25); margin-bottom: 4px; }
-.score-big { font-size: 52px; font-weight: 900; line-height: 1; }
-.score-pct-sm { font-size: 24px; font-weight: 600; }
-.score-bar-track { width: 100%; height: 4px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; margin-top: 8px; }
-.score-bar-fill { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
-.green { color: #4ade80; }
-.amber { color: #fbbf24; }
-.orange { color: #E8622C; }
+/* ── Section ── */
+.section { }
+.section-title { font-size: 13px; color: rgba(255,255,255,0.35); margin-bottom: 16px; }
 
-/* Table */
-.table-section { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; overflow: hidden; }
-.table-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid rgba(255,255,255,0.06); }
-.table-title { font-size: 15px; font-weight: 700; color: #fff; }
-.table-sub { font-size: 12.5px; color: rgba(255,255,255,0.3); margin-top: 2px; }
+/* ── Opportunities list ── */
+.opp-list { display: flex; flex-direction: column; gap: 10px; }
+.opp-card { display: flex; align-items: center; gap: 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 16px 18px; border-left: 3px solid transparent; transition: all 0.18s; }
+.opp-card:hover { background: rgba(255,255,255,0.05); }
+.opp-card.eligible { border-left-color: #22c55e; }
+.opp-card.to_review { border-left-color: #f59e0b; }
+.opp-rank { width: 28px; height: 28px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: rgba(255,255,255,0.5); flex-shrink: 0; }
+.opp-card.eligible .opp-rank { background: rgba(34,197,94,0.1); border-color: rgba(34,197,94,0.2); color: #22c55e; }
+.opp-card.to_review .opp-rank { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.2); color: #f59e0b; }
+.opp-main { flex: 1; display: flex; align-items: center; gap: 14px; min-width: 0; }
+.opp-client { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.opp-avatar { width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0; background: linear-gradient(135deg, #1B2A4A, #2d4270); border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #fff; }
+.opp-avatar.large { width: 44px; height: 44px; font-size: 14px; }
+.opp-name { font-size: 13px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.opp-sector { font-size: 11px; color: rgba(255,255,255,0.3); margin-top: 2px; }
+.opp-arrow { color: rgba(255,255,255,0.2); font-size: 16px; flex-shrink: 0; }
+.opp-product { flex-shrink: 0; }
+.opp-product-id { font-size: 11px; font-weight: 800; color: #E8622C; font-family: monospace; }
+.opp-product-name { font-size: 11px; color: rgba(255,255,255,0.4); max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.opp-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.opp-score-bar { width: 80px; height: 5px; background: rgba(255,255,255,0.06); border-radius: 99px; overflow: hidden; }
+.opp-bar-fill { height: 100%; border-radius: 99px; }
+.opp-score-pct { font-size: 14px; font-weight: 800; width: 40px; text-align: right; }
+.elig-badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 99px; white-space: nowrap; }
+.elig-badge.eligible  { background: rgba(34,197,94,0.12);  color: #22c55e; border: 1px solid rgba(34,197,94,0.2); }
+.elig-badge.to_review { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
 
-.detail-toggle-btn {
-  display: flex; align-items: center; gap: 7px;
-  padding: 8px 16px; border-radius: 8px;
-  background: rgba(232,98,44,0.1); border: 1px solid rgba(232,98,44,0.25);
-  color: #E8622C; font-size: 13px; font-weight: 600; cursor: pointer;
-  transition: all 0.18s;
-}
-.detail-toggle-btn:hover { background: rgba(232,98,44,0.18); }
+/* ── Client cards ── */
+.client-list { display: flex; flex-direction: column; gap: 12px; }
+.client-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; }
+.cl-header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.cl-info { flex: 1; min-width: 0; }
+.cl-name { font-size: 15px; font-weight: 700; color: #fff; }
+.cl-sector { font-size: 12px; color: rgba(255,255,255,0.35); margin-top: 2px; }
+.cl-id { font-size: 10px; color: rgba(255,255,255,0.2); font-family: monospace; }
+.cl-summary { display: flex; gap: 8px; flex-wrap: wrap; }
+.cl-pill { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 99px; border: 1px solid; }
+.cl-pill.eligible { background: rgba(34,197,94,0.1); color: #22c55e; border-color: rgba(34,197,94,0.2); }
+.cl-pill.review   { background: rgba(245,158,11,0.1); color: #f59e0b; border-color: rgba(245,158,11,0.2); }
+.cl-pill.total    { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.4); border-color: rgba(255,255,255,0.1); }
+.cl-products { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cl-products-label { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; }
+.cl-products-label.review { color: #f59e0b; }
+.cl-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cl-chip { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 8px; font-family: monospace; }
+.cl-chip.eligible { background: rgba(34,197,94,0.1); color: #22c55e; border: 1px solid rgba(34,197,94,0.2); }
+.cl-chip.review   { background: rgba(245,158,11,0.1); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); }
+.cl-chip em { font-style: normal; opacity: 0.7; margin-left: 4px; }
 
-.table-wrap { overflow-x: auto; }
-.table { width: 100%; border-collapse: collapse; }
-.table thead tr { background: rgba(255,255,255,0.03); }
-.table th { padding: 12px 20px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: rgba(255,255,255,0.3); white-space: nowrap; }
-.table-row { border-top: 1px solid rgba(255,255,255,0.04); transition: background 0.15s; }
-.table-row:hover { background: rgba(232,98,44,0.03); }
-.table td { padding: 18px 20px; vertical-align: middle; }
-
-.td-product { display: flex; align-items: center; gap: 12px; }
-.product-icon { width: 36px; height: 36px; border-radius: 9px; background: rgba(232,98,44,0.1); border: 1px solid rgba(232,98,44,0.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.product-name { font-size: 14px; font-weight: 600; color: #fff; }
-.product-id { font-size: 11px; color: rgba(255,255,255,0.25); font-family: monospace; margin-top: 2px; }
-
-.td-score .score-row { display: flex; align-items: center; gap: 10px; }
-.score-pct-text { font-size: 15px; font-weight: 800; min-width: 40px; }
-.progress-track { flex: 1; max-width: 140px; height: 6px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; }
-.progress-fill { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
-.score-pts { font-size: 11.5px; color: rgba(255,255,255,0.3); white-space: nowrap; }
-
-.status-badge { display: inline-flex; align-items: center; gap: 7px; padding: 6px 14px; border-radius: 99px; font-size: 12.5px; font-weight: 600; }
-.st-completed { background: rgba(34,197,94,0.12); color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
-.status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-
-.action-btn { padding: 8px 18px; background: linear-gradient(135deg, #E8622C, #ff7a45); color: #fff; font-size: 13px; font-weight: 700; border: none; border-radius: 8px; cursor: pointer; transition: all 0.18s; white-space: nowrap; }
-.action-btn:hover { transform: scale(1.03); box-shadow: 0 4px 16px rgba(232,98,44,0.35); }
-
-/* Criteria list modal */
-.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.72); backdrop-filter: blur(4px); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 24px; }
-.modal { background: #0A1628; border: 1px solid rgba(232,98,44,0.2); border-radius: 16px; width: 100%; max-width: 640px; max-height: 82vh; overflow-y: auto; }
-.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid rgba(255,255,255,0.07); position: sticky; top: 0; background: #0A1628; z-index: 1; }
-.modal-title { font-size: 15px; font-weight: 700; color: #fff; flex: 1; padding-right: 16px; line-height: 1.4; }
-.modal-close { background: none; border: none; color: rgba(255,255,255,0.4); font-size: 16px; cursor: pointer; padding: 2px; }
-.modal-close:hover { color: #fff; }
-.modal-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; }
-
-.criterion-card {
-  display: flex; align-items: center; gap: 16px;
-  padding: 14px 16px; border-radius: 10px;
-  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
-  cursor: pointer; transition: all 0.15s;
-}
-.criterion-card:hover { background: rgba(232,98,44,0.06); border-color: rgba(232,98,44,0.2); }
-.cc-left { flex: 1; min-width: 0; }
-.cc-name { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.85); margin-bottom: 3px; }
-.cc-type { font-size: 10.5px; color: rgba(232,98,44,0.6); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
-.cc-mid { min-width: 160px; }
-.cc-score-row { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
-.cc-pct { font-size: 13px; font-weight: 800; min-width: 34px; }
-.cc-bar-bg { flex: 1; height: 4px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; }
-.cc-bar-fill { height: 100%; border-radius: 99px; }
-.cc-pts { font-size: 10.5px; color: rgba(255,255,255,0.25); }
-.cc-right { flex-shrink: 0; }
-
-.conf-badge { display: inline-flex; padding: 3px 9px; border-radius: 99px; font-size: 11.5px; font-weight: 700; }
-.conf-high { background: rgba(34,197,94,0.12); color: #4ade80; }
-.conf-mid { background: rgba(245,158,11,0.12); color: #fbbf24; }
-.conf-low { background: rgba(232,98,44,0.12); color: #E8622C; }
-
-/* Detail modal */
-.modal-detail { padding: 20px 24px; gap: 14px; }
-.modal-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-.ml { font-size: 12px; color: rgba(255,255,255,0.35); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-.mv { font-size: 13.5px; color: #fff; font-weight: 600; }
-.mv.code { font-family: monospace; color: #E8622C; }
-.modal-section { display: flex; flex-direction: column; gap: 8px; }
-.mb4 { margin-bottom: 4px; }
-.modal-just { font-size: 13px; color: rgba(255,255,255,0.55); line-height: 1.7; }
-.ev-link-big { font-size: 13px; color: #E8622C; text-decoration: none; font-weight: 600; }
-.ev-link-big:hover { text-decoration: underline; }
-.modal-snippet { margin: 0; padding: 10px 14px; background: rgba(232,98,44,0.06); border-left: 2px solid #E8622C; border-radius: 4px; font-size: 12px; color: rgba(255,255,255,0.4); font-style: italic; line-height: 1.6; }
-.choice-row { display: flex; justify-content: space-between; padding: 8px 12px; border-radius: 7px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); font-size: 13px; color: rgba(255,255,255,0.55); }
-.choice-row.matched { background: rgba(232,98,44,0.1); border-color: rgba(232,98,44,0.3); color: #fff; }
-.choice-pts { font-weight: 700; color: #4ade80; }
+/* ── Product cards ── */
+.product-list { display: flex; flex-direction: column; gap: 10px; }
+.product-card { display: flex; align-items: center; gap: 20px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 14px 18px; flex-wrap: wrap; }
+.pc-left { min-width: 120px; flex-shrink: 0; }
+.pc-id { font-size: 13px; font-weight: 800; color: #E8622C; font-family: monospace; }
+.pc-name { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+.pc-stats { display: flex; gap: 16px; }
+.pc-stat { text-align: center; }
+.pc-val { font-size: 20px; font-weight: 800; color: #fff; line-height: 1.2; }
+.pc-lbl { font-size: 9px; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 0.3px; }
+.pc-stat.eligible .pc-val { color: #22c55e; }
+.pc-stat.review   .pc-val { color: #f59e0b; }
+.pc-stat.not      .pc-val { color: rgba(255,255,255,0.3); }
+.pc-bar-wrap { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 120px; }
+.pc-bar { flex: 1; height: 6px; background: rgba(255,255,255,0.06); border-radius: 99px; overflow: hidden; display: flex; }
+.pc-seg { height: 100%; }
+.pc-seg.eligible { background: #22c55e; }
+.pc-seg.review   { background: #f59e0b; }
+.pc-pct { font-size: 12px; font-weight: 700; color: #22c55e; white-space: nowrap; }
 </style>

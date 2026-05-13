@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 from app.services.scoring.agent_orchestrator_service import AgentOrchestratorService
 from app.services.scoring.scoring_pipeline_service import ScoringPipelineService
 from app.services.scoring.score_mapper_service import ScoreMapperService
-from app.services.scoring.data_quality_service import DataQualityService, quality_tier
+from app.services.scoring.data_quality_service import DataQualityService
 from app.modules.elasticsearch.tools.reference_tool import ESReferenceTool
 
 logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # _MAX_LLM_WORKERS threads), so the total thread count is
 # BATCH_PRODUCT_WORKERS × _MAX_LLM_WORKERS at peak.
 # Keep this low to avoid overwhelming the LLM provider rate limits.
-_BATCH_PRODUCT_WORKERS = 3
+_BATCH_PRODUCT_WORKERS = 5
 
 
 class BatchScoringService:
@@ -62,33 +62,23 @@ class BatchScoringService:
 
         extra_sources: List[Dict[str, Any]] = []
 
-        # Always load manually placed documents from client_documents/
-        from app.services.documents.local_document_loader import load_local_documents
-        local_docs = load_local_documents()
-        if local_docs:
-            extra_sources.extend(local_docs)
-            logger.info("Batch[%s]: %d local document(s) loaded from client_documents/", client_id, len(local_docs))
-
-        # For the demo client, inject pre-fetched sources instead of live crawl
+        # For the demo client (L'ORÉAL): inject pre-fetched sources + local client docs.
+        # Other clients: ClientDocumentTool handles local files inside prepare_client_context.
+        # We load local docs manually here only for the demo path because that path
+        # builds ClientContext directly and never calls prepare_client_context.
         if client_id == DEMO_CLIENT_ID:
-            extra_sources = list(DEMO_SOURCES) + [s for s in extra_sources if s.get("type") == "document"]
-            logger.info("Batch[%s]: demo mode — pre-fetched sources injected", client_id)
+            from app.services.documents.local_document_loader import load_documents_for_client
+            client_docs = load_documents_for_client(client_id)
+            extra_sources = list(DEMO_SOURCES) + client_docs
+            logger.info(
+                "Batch[%s]: demo mode — pre-fetched sources + %d client doc(s) injected",
+                client_id, len(client_docs),
+            )
 
-        # Append inline documents (sent directly in the request — no server state required)
+        # Inline documents are handled by ClientDocumentTool inside prepare_client_context.
+        # Do NOT convert them to extra_sources here — that would duplicate them.
         if inline_documents:
-            for doc in inline_documents:
-                from app.services.scoring.agent_orchestrator_service import _extract_domain
-                from app.services.documents.document_extractor import _build_sections
-                src = {
-                    "type":     "document",
-                    "url":      None,
-                    "label":    doc.get("label", "Document"),
-                    "text":     doc.get("text", ""),
-                    "sections": _build_sections(doc.get("text", "")),
-                    "anchors":  {},
-                }
-                extra_sources.append(src)
-            logger.info("Batch[%s]: %d inline document(s) attached", client_id, len(inline_documents))
+            logger.info("Batch[%s]: %d inline document(s) will be passed to ClientDocumentTool", client_id, len(inline_documents))
 
         # Legacy: look up documents by ID from server-side store
         if document_ids:
@@ -118,7 +108,11 @@ class BatchScoringService:
                     base_trace=[f"[DEMO+BATCH] {len(extra_sources)} sources, {len(all_chunks)} chunks"],
                 )
             else:
-                context = self.orchestrator.prepare_client_context(client_id, extra_sources=extra_sources)
+                context = self.orchestrator.prepare_client_context(
+                    client_id,
+                    extra_sources=extra_sources,
+                    inline_documents=inline_documents,
+                )
         except Exception as exc:
             logger.error("Batch[%s]: context preparation failed: %s", client_id, exc)
             return {
@@ -201,6 +195,151 @@ class BatchScoringService:
         }
 
     # ------------------------------------------------------------------
+    # Streaming API — yields events as each product is scored
+    # ------------------------------------------------------------------
+
+    async def stream_batch(
+        self,
+        client_id: str,
+        inline_documents: List[Dict[str, Any]] | None = None,
+        product_ids: List[str] | None = None,
+    ):
+        """
+        Async generator that yields SSE-ready dicts.
+        Events: context_ready | product_result | done | error
+        """
+        import asyncio, time as _time
+
+        loop  = asyncio.get_event_loop()
+        start = _time.monotonic()
+
+        # ── Phase 1: build client context in a thread ────────────────────────
+        try:
+            context = await loop.run_in_executor(
+                None,
+                lambda: self.orchestrator.prepare_client_context(
+                    client_id, inline_documents=inline_documents
+                ),
+            )
+        except Exception as exc:
+            yield {"type": "error", "detail": str(exc)}
+            return
+
+        if context.client_data is None:
+            yield {"type": "error", "detail": f"Client '{client_id}' not found in Elasticsearch."}
+            return
+
+        client_data = context.client_data or {}
+        yield {
+            "type":   "context_ready",
+            "client": {
+                "client_id":   client_data.get("client_id"),
+                "client_name": client_data.get("client_name"),
+                "sector":      client_data.get("sector"),
+                "website":     client_data.get("website"),
+            },
+        }
+
+        # ── Phase 2: check scoring cache first, only run pipeline for misses ──
+        from app.services.scoring.scoring_cache_service import scoring_cache
+
+        all_products = self.reference_tool._load_json(self.reference_tool._products_path)
+        if not all_products:
+            yield {"type": "error", "detail": "No products found."}
+            return
+
+        # Filter to requested products if a selection was provided
+        if product_ids:
+            products = [p for p in all_products if p["id"] in product_ids]
+            if not products:
+                yield {"type": "error", "detail": "None of the requested product IDs were found."}
+                return
+        else:
+            products = all_products
+
+        # Split products into cache hits (instant) and misses (need scoring)
+        cached_results  = []
+        products_to_run = []
+        has_inline_docs = bool(inline_documents)
+
+        for p in products:
+            if not has_inline_docs:           # skip cache when new docs are provided
+                hit = scoring_cache.get(client_id, p["id"])
+                if hit:
+                    cached_results.append(hit)
+                    continue
+            products_to_run.append(p)
+
+        # Stream cached results immediately (no wait)
+        succeeded = len(cached_results)
+        for result in cached_results:
+            yield {"type": "product_result", "result": {**result, "cache_hit": True}}
+
+        if cached_results and not products_to_run:
+            # Everything was cached — skip context build, return instantly
+            duration = round(_time.monotonic() - start, 1)
+            yield {
+                "type": "done",
+                "summary": {
+                    "total":            len(products),
+                    "succeeded":        succeeded,
+                    "failed":           0,
+                    "duration_seconds": duration,
+                    "from_cache":       len(cached_results),
+                },
+            }
+            return
+
+        # Some products need live scoring — proceed with context
+        queue: asyncio.Queue = asyncio.Queue()
+
+        def _producer():
+            with ThreadPoolExecutor(max_workers=_BATCH_PRODUCT_WORKERS) as pool:
+                futures = {
+                    pool.submit(self._score_one_product, context, p["id"], p["name"]): p
+                    for p in products_to_run
+                }
+                for fut in as_completed(futures):
+                    try:
+                        result = fut.result()
+                    except Exception as exc:
+                        product_meta = futures[fut]
+                        result = {
+                            "product_id":   product_meta["id"],
+                            "product_name": product_meta["name"],
+                            "status":       "failed",
+                            "error":        str(exc),
+                        }
+                    loop.call_soon_threadsafe(queue.put_nowait, result)
+            loop.call_soon_threadsafe(queue.put_nowait, None)   # sentinel
+
+        loop.run_in_executor(None, _producer)
+
+        while True:
+            result = await queue.get()
+            if result is None:
+                break
+            if result.get("status") == "success":
+                succeeded += 1
+                try:
+                    scoring_cache.set(client_id, result["product_id"], result)
+                except Exception:
+                    pass
+            yield {"type": "product_result", "result": result}
+
+        duration = round(_time.monotonic() - start, 1)
+        yield {
+            "type": "done",
+            "summary": {
+                "total":            len(products),
+                "succeeded":        succeeded,
+                "failed":           len(products) - succeeded,
+                "duration_seconds": duration,
+                "from_cache":       len(cached_results),
+            },
+        }
+
+    # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
 
@@ -240,7 +379,7 @@ class BatchScoringService:
             summary = self.score_mapper.aggregate(scored_criteria, blocking_triggered)
             quality_report = self.quality_checker.evaluate(scored_criteria)
 
-            return {
+            result = {
                 "product_id":       product_id,
                 "product_name":     product_name,
                 "status":           "success",
@@ -251,6 +390,13 @@ class BatchScoringService:
                 "data_quality":     quality_report.model_dump(),
                 "criteria_results": scored_criteria,
             }
+            # Save to cache so campaign scoring can reuse this result
+            try:
+                from app.services.scoring.scoring_cache_service import scoring_cache
+                scoring_cache.set(context.client_id, product_id, result)
+            except Exception:
+                pass  # cache failure must never break scoring
+            return result
 
         except Exception as exc:
             logger.error("Batch product %s failed: %s", product_id, exc)

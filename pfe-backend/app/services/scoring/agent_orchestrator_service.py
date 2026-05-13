@@ -11,6 +11,7 @@ from app.tools.semantic_crawl_tool import SemanticCrawlTool
 from app.tools.linkedin_playwright_tool import LinkedInPlaywrightTool
 from app.tools.news_search_tool import NewsSearchTool
 from app.tools.pdf_search_tool import PDFSearchTool
+from app.tools.client_document_tool import ClientDocumentTool
 from app.services.enrichment.social_extractor import SocialExtractor
 from app.services.scoring.chunk_embedder_service import ChunkEmbedderService
 from app.services.scoring.semantic_retriever_service import SemanticRetrieverService
@@ -56,6 +57,7 @@ class AgentOrchestratorService:
         self.linkedin_tool   = LinkedInPlaywrightTool()
         self.news_tool       = NewsSearchTool()
         self.pdf_tool        = PDFSearchTool()
+        self.document_tool   = ClientDocumentTool()
         self.social_extractor = SocialExtractor()
         self.embedder        = ChunkEmbedderService()
         self.retriever       = SemanticRetrieverService()
@@ -172,7 +174,10 @@ class AgentOrchestratorService:
     # intact; it internally delegates through both phases.
 
     def prepare_client_context(
-        self, client_id: str, extra_sources: Optional[List[Dict[str, Any]]] = None
+        self,
+        client_id: str,
+        extra_sources: Optional[List[Dict[str, Any]]] = None,
+        inline_documents: Optional[List[Dict[str, Any]]] = None,
     ) -> "ClientContext":
         """
         Crawl the client's sources and embed all chunks.
@@ -196,31 +201,89 @@ class AgentOrchestratorService:
         website_url = (client_data or {}).get("website")
         website_domain = _extract_domain(website_url)
 
-        with ThreadPoolExecutor(max_workers=4) as crawl_pool:
-            website_future  = crawl_pool.submit(self.website_tool.run, website_url)
-            linkedin_future = crawl_pool.submit(self.linkedin_tool.run, linkedin_url, company_name)
-            news_future     = crawl_pool.submit(self.news_tool.run, company_name, website_domain)
-            pdf_future      = crawl_pool.submit(self.pdf_tool.run, company_name, website_domain)
-            website_data  = website_future.result()
-            linkedin_data = linkedin_future.result()
-            news_data     = news_future.result()
-            pdf_data      = pdf_future.result()
+        import subprocess, sys, json as _json, os as _os, tempfile as _tmp
+
+        def _run_tool_subprocess(tool_name: str, kwargs: dict, timeout_sec: int = 20) -> dict:
+            """
+            Run a crawl tool in a separate Python process with a hard OS-level timeout.
+            This is the only reliable way to kill C-level network calls (curl_cffi).
+            """
+            script = f"""
+import sys, json
+sys.path.insert(0, '.')
+try:
+    if '{tool_name}' == 'website':
+        from app.tools.semantic_crawl_tool import SemanticCrawlTool
+        r = SemanticCrawlTool().run({_json.dumps(kwargs.get('url'))})
+    elif '{tool_name}' == 'linkedin':
+        from app.tools.linkedin_playwright_tool import LinkedInPlaywrightTool
+        r = LinkedInPlaywrightTool().run({_json.dumps(kwargs.get('url'))}, {_json.dumps(kwargs.get('name'))})
+    elif '{tool_name}' == 'news':
+        from app.tools.news_search_tool import NewsSearchTool
+        r = NewsSearchTool().run({_json.dumps(kwargs.get('name'))}, {_json.dumps(kwargs.get('domain'))})
+    elif '{tool_name}' == 'pdf':
+        from app.tools.pdf_search_tool import PDFSearchTool
+        r = PDFSearchTool().run({_json.dumps(kwargs.get('name'))}, {_json.dumps(kwargs.get('domain'))})
+    else:
+        r = {{"pages": []}}
+    print(json.dumps(r))
+except Exception as e:
+    print(json.dumps({{"pages": [], "error": str(e)}}))
+"""
+            try:
+                result = subprocess.run(
+                    [sys.executable, "-c", script],
+                    capture_output=True, text=True,
+                    timeout=timeout_sec,
+                    cwd=_os.getcwd(),
+                )
+                if result.stdout.strip():
+                    return _json.loads(result.stdout.strip().splitlines()[-1])
+            except subprocess.TimeoutExpired:
+                logger.warning("CTX: '%s' killed after %ds — skipped", tool_name, timeout_sec)
+            except Exception as exc:
+                logger.warning("CTX: '%s' subprocess error: %s", tool_name, exc)
+            return {"pages": []}
+
+        # Documents — always instant (local files), run directly
+        doc_data = self.document_tool.run(client_id, inline_documents)
+
+        # Web crawls — each in its own killable subprocess (20s hard limit)
+        _T = 12
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            wf = pool.submit(_run_tool_subprocess, "website",  {"url": website_url}, _T)
+            lf = pool.submit(_run_tool_subprocess, "linkedin", {"url": linkedin_url, "name": company_name}, _T)
+            nf = pool.submit(_run_tool_subprocess, "news",     {"name": company_name, "domain": website_domain}, _T)
+            pf = pool.submit(_run_tool_subprocess, "pdf",      {"name": company_name, "domain": website_domain}, _T)
+            website_data  = wf.result()
+            linkedin_data = lf.result()
+            news_data     = nf.result()
+            pdf_data      = pf.result()
 
         pdf_pages = pdf_data.get("pages", [])
         if pdf_pages:
             for p in pdf_pages:
-                trace.append(f"  PDF: [{p.get('title','?')[:60]}] {p.get('url','')[:60]}")
+                trace.append(f"  PDF auto: [{p.get('title','?')[:60]}]")
         else:
-            trace.append("  PDF: no public documents found")
+            trace.append("  PDF auto: no public documents found")
+
+        doc_pages = doc_data.get("pages", [])
+        if doc_pages:
+            for p in doc_pages:
+                trace.append(f"  Document: [{p.get('title','?')[:60]}] ({len(p.get('full_text',''))} chars)")
+        else:
+            trace.append("  Documents: none for this client")
 
         trace.append("CTX: build + embed sources")
-        sources = self._build_sources(client_data or {}, website_data, linkedin_data, news_data, pdf_data)
+        sources = self._build_sources(
+            client_data or {}, website_data, linkedin_data, news_data, pdf_data, doc_data
+        )
 
-        # Inject uploaded documents as additional sources
+        # Inject any extra sources passed directly (legacy path)
         if extra_sources:
             for doc in extra_sources:
                 sources.append(doc)
-                trace.append(f"  Document source: [{doc['label']}] ({len(doc.get('text',''))} chars)")
+                trace.append(f"  Extra source: [{doc.get('label','?')}]")
         all_chunks: List[Dict] = []
         for src in sources:
             all_chunks.extend(self.embedder.chunk_source(src))
@@ -321,6 +384,109 @@ class AgentOrchestratorService:
         # batch paths share the same implementation.
         context = self.prepare_client_context(client_id)
         return self.score_product_from_context(context, product_id)
+
+    def run_crm_only(self, client_id: str, product_id: str) -> Dict[str, Any]:
+        """
+        Quick scoring mode — no web crawl, no LinkedIn, no news.
+        Uses only the Salesforce CRM record as the evidence source.
+        ~3-5s per client vs ~30s for full mode. Ideal for campaign batch ranking.
+        """
+        trace: List[str] = ["[QUICK MODE] CRM-only scoring — web crawl skipped."]
+
+        trace.append("Step 1: load product + criteria + choices")
+        product          = self.reference_tool.get_product(product_id)
+        criteria         = self.reference_tool.get_criteria(product_id)
+        all_choices      = self.reference_tool.get_all_choices_grouped()
+        choices_by_criterion = {c["id"]: all_choices.get(c["id"], []) for c in criteria}
+
+        if not product:
+            return {"error": f"Product '{product_id}' not found.", "trace": trace}
+
+        trace.append("Step 2: load client from Elasticsearch (CRM only)")
+        client_data = self.client_tool.run(client_id)
+        if client_data is None:
+            return {
+                "error": "client_data_unavailable",
+                "detail": f"Client '{client_id}' not found in Elasticsearch.",
+                "trace": trace,
+            }
+
+        # Build a synthetic text source from CRM fields only
+        name      = client_data.get("client_name", "")
+        sector    = client_data.get("sector", "")
+        employees = client_data.get("employees", "")
+        website   = client_data.get("website", "")
+        linkedin  = client_data.get("linkedin", "")
+
+        crm_text = (
+            f"Nom de l'entreprise : {name}.\n"
+            f"Secteur d'activité : {sector}.\n"
+            f"Nombre d'employés : {employees}.\n"
+            + (f"Site web : {website}.\n" if website else "")
+            + (f"LinkedIn : {linkedin}.\n" if linkedin else "")
+        ).strip()
+
+        crm_source = {
+            "type":        "crm",
+            "label":       "Salesforce CRM",
+            "url":         "",
+            "source_type": "crm",
+            "full_text":   crm_text,
+        }
+        sources_meta = {"website": website, "linkedin": linkedin, "news": []}
+
+        trace.append(f"Step 3: embed CRM source ({len(crm_text)} chars)")
+        all_chunks: List[Dict] = self.embedder.chunk_source(crm_source)
+        all_chunks = self.embedder.embed_chunks(all_chunks)
+        trace.append(f"  {len(all_chunks)} chunk(s) embedded")
+
+        trace.append("Step 4: embed criterion queries")
+        query_embeddings = {
+            c["id"]: self.embedder.embed_query(c.get("label", ""))
+            for c in criteria
+        }
+
+        trace.append(f"Step 5: evaluate {len(criteria)} criteria")
+        results_map: Dict[str, Tuple[Dict, List[str]]] = {}
+        with ThreadPoolExecutor(max_workers=_MAX_LLM_WORKERS) as pool:
+            futures = {
+                pool.submit(
+                    self._evaluate_criterion,
+                    criterion,
+                    all_chunks,
+                    choices_by_criterion.get(criterion["id"], []),
+                    client_data,
+                    sources_meta,
+                    query_embeddings.get(criterion["id"]),
+                ): criterion["id"]
+                for criterion in criteria
+            }
+            for future in as_completed(futures):
+                cid = futures[future]
+                try:
+                    result_dict, local_trace = future.result()
+                    results_map[cid] = (result_dict, local_trace)
+                except Exception as exc:
+                    logger.error("CRM-only criterion %s failed: %s", cid, exc)
+                    results_map[cid] = (
+                        {"criterion_id": cid, "error": str(exc)},
+                        [f"  [{cid}] ERROR: {exc}"],
+                    )
+
+        criterion_results = []
+        for c in criteria:
+            result_dict, local_trace = results_map.get(c["id"], ({}, []))
+            trace.extend(local_trace)
+            criterion_results.append(result_dict)
+
+        return {
+            "trace":            trace,
+            "product":          product,
+            "criteria":         criteria,
+            "client_data":      client_data,
+            "criteria_results": criterion_results,
+            "quick_mode":       True,
+        }
 
     def _run_live_LEGACY(self, client_id: str, product_id: str) -> Dict[str, Any]:
         """Original monolithic implementation — kept for reference, not called."""
@@ -517,6 +683,7 @@ class AgentOrchestratorService:
         linkedin_data: Dict[str, Any],
         news_data: Dict[str, Any],
         pdf_data: Optional[Dict[str, Any]] = None,
+        doc_data: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         sources: List[Dict[str, Any]] = []
         company_name: Optional[str] = client_data.get("client_name")
@@ -532,19 +699,37 @@ class AgentOrchestratorService:
                 "anchors": {},
             })
 
+        # Patterns that indicate useless pages (cookie banners, login walls, etc.)
+        _NOISE_PATTERNS = [
+            "cookies soumis à votre consentement",
+            "cookie consent",
+            "we use cookies",
+            "nous utilisons des cookies",
+            "accepter les cookies",
+            "politique de confidentialité",
+            "privacy policy",
+        ]
+
+        def _is_noisy(text: str) -> bool:
+            t = text.lower()
+            return any(p in t for p in _NOISE_PATTERNS) and len(text) < 2000
+
         website_url = client_data.get("website")
         for page in website_data.get("pages", []):
             text = page.get("full_text") or f"{page.get('title', '')} {page.get('snippet', '')}"
-            if text.strip():
-                # Website pages are trusted (fetched from the client's own domain)
-                sources.append({
-                    "type":  "website",
-                    "url":   page.get("url") or website_url,
-                    "label": page.get("title") or page.get("url") or "Website",
-                    "text":  text,
-                    "sections": page.get("sections", []),
-                    "anchors":  page.get("anchors", {}),
-                })
+            if not text.strip():
+                continue
+            if _is_noisy(text):
+                logger.warning("Rejected noisy website page '%s'", page.get("title", ""))
+                continue
+            sources.append({
+                "type":  "website",
+                "url":   page.get("url") or website_url,
+                "label": page.get("title") or page.get("url") or "Website",
+                "text":  text,
+                "sections": page.get("sections", []),
+                "anchors":  page.get("anchors", {}),
+            })
 
         linkedin_url = client_data.get("linkedin")
         for page in linkedin_data.get("pages", []):
@@ -589,7 +774,7 @@ class AgentOrchestratorService:
                 "anchors":  {},
             })
 
-        # ── PDF documents (auto-discovered) ────────────────────────────────
+        # ── PDF documents (auto-discovered online) ──────────────────────────
         for page in (pdf_data or {}).get("pages", []):
             text = page.get("full_text") or page.get("snippet", "")
             if not text.strip():
@@ -597,7 +782,23 @@ class AgentOrchestratorService:
             sources.append({
                 "type":     "document",
                 "url":      page.get("url"),
-                "label":    page.get("title") or page.get("url") or "PDF Document",
+                "label":    page.get("title") or "PDF Document",
+                "text":     text,
+                "sections": page.get("sections", []),
+                "anchors":  {},
+            })
+
+        # ── Client documents (PDFs / images / text from client_documents/) ──
+        # These are the most authoritative sources — client-specific files
+        # placed manually in client_documents/{client_id}/ or uploaded via UI.
+        for page in (doc_data or {}).get("pages", []):
+            text = page.get("full_text") or page.get("snippet", "")
+            if not text.strip():
+                continue
+            sources.append({
+                "type":     "document",
+                "url":      page.get("url"),
+                "label":    page.get("title") or "Client Document",
                 "text":     text,
                 "sections": page.get("sections", []),
                 "anchors":  {},

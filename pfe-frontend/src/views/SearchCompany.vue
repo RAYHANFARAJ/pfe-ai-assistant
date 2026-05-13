@@ -10,8 +10,21 @@
               <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35" stroke-linecap="round"/>
             </svg>
           </div>
-          <h2 class="step-title">Search for a Company</h2>
-          <p class="step-desc">Type a company name or paste a Salesforce ID</p>
+          <h2 class="step-title">Rechercher un Client</h2>
+          <p class="step-desc">Tapez le nom de l'entreprise ou collez son identifiant Salesforce</p>
+
+          <!-- Search mode hints -->
+          <div class="search-hints">
+            <span class="search-hint" :class="{ active: !isSalesforceId(searchQuery) }">
+              <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Recherche par nom
+            </span>
+            <span class="search-hint-sep">·</span>
+            <span class="search-hint" :class="{ active: isSalesforceId(searchQuery) }">
+              <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+              Recherche par ID Salesforce
+            </span>
+          </div>
 
           <div class="autocomplete-wrap" ref="acWrap">
             <div class="input-icon-wrap">
@@ -26,16 +39,21 @@
                 @keydown.up.prevent="moveUp"
                 @keydown.enter.prevent="selectHighlighted"
                 @keydown.esc="showDropdown = false"
-                placeholder="Search by name or Salesforce ID…"
+                placeholder="Ex: Société Générale ou 001W500000P6AY6IAN…"
                 class="search-input"
                 :class="{ 'id-mode': isSalesforceId(searchQuery) }"
                 autocomplete="off"
               />
               <span v-if="searching" class="input-spin"></span>
               <span v-else-if="isSalesforceId(searchQuery)" class="id-badge">ID</span>
+              <span v-else-if="searchQuery.length > 1" class="name-badge">NOM</span>
             </div>
 
             <div v-if="showDropdown && suggestions.length > 0" class="dropdown">
+              <div class="dropdown-header">
+                {{ suggestions.length }} résultat{{ suggestions.length > 1 ? 's' : '' }}
+                <span v-if="!isSalesforceId(searchQuery)"> pour "{{ searchQuery }}"</span>
+              </div>
               <div
                 v-for="(item, i) in suggestions"
                 :key="item.client_id"
@@ -56,7 +74,8 @@
             </div>
 
             <div v-if="showDropdown && suggestions.length === 0 && searchQuery.length > 1 && !searching" class="dropdown no-results">
-              <span>No company found for "{{ searchQuery }}"</span>
+              <svg width="16" height="16" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+              <span>Aucun client trouvé pour "<b>{{ searchQuery }}</b>"</span>
             </div>
           </div>
         </div>
@@ -82,25 +101,104 @@
           </button>
         </div>
 
-        <div class="batch-launch-card">
+        <!-- Mode selector -->
+        <div class="mode-selector">
+          <button class="mode-tab" :class="{ active: scoringMode === 'all' }" @click="scoringMode = 'all'; selectedProductIds = []">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Tous les produits
+            <span class="mode-count">{{ products.length }}</span>
+          </button>
+          <button class="mode-tab" :class="{ active: scoringMode === 'select' }" @click="scoringMode = 'select'">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+            Produits spécifiques
+            <span v-if="scoringMode === 'select' && selectedProductIds.length" class="mode-count orange">{{ selectedProductIds.length }}</span>
+          </button>
+        </div>
+
+        <!-- All products mode -->
+        <div v-if="scoringMode === 'all'" class="batch-launch-card">
           <div class="batch-launch-icon">
             <svg width="32" height="32" fill="none" stroke="#E8622C" stroke-width="1.6" viewBox="0 0 24 24">
               <polygon points="5 3 19 12 5 21 5 3"/>
             </svg>
           </div>
           <div class="batch-launch-text">
-            <div class="batch-launch-title">Qualify All Products</div>
+            <div class="batch-launch-title">Qualifier tous les produits</div>
             <div class="batch-launch-sub">
-              The pipeline will crawl <strong>{{ client.client_name }}</strong>'s sources once,
-              then score all {{ products.length || '…' }} products in parallel.
+              Le pipeline crawle <strong>{{ client.client_name }}</strong> une seule fois
+              puis score les {{ products.length || '…' }} produits en parallèle.
+            </div>
+            <!-- Time estimate -->
+            <div class="time-estimate-row">
+              <svg width="13" height="13" fill="none" stroke="#f59e0b" stroke-width="2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+              <span class="time-estimate-main">Durée estimée : <b>{{ estimatedScoringTime }}</b></span>
+              <div class="time-estimate-breakdown">
+                <span v-for="b in estimatedBreakdown" :key="b.label" class="teb-item">
+                  {{ b.icon }} {{ b.label }} <em>{{ b.time }}</em>
+                </span>
+              </div>
             </div>
           </div>
           <button class="batch-btn" @click="runBatchScoring" :disabled="loadingProducts">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
               <polygon points="5 3 19 12 5 21 5 3"/>
             </svg>
-            Run All
+            Lancer tout
           </button>
+        </div>
+
+        <!-- Select specific products mode -->
+        <div v-else class="product-select-card">
+          <div class="psc-header">
+            <span class="psc-title">Sélectionner les produits à scorer</span>
+            <div class="psc-actions">
+              <button class="psc-action-btn" @click="selectedProductIds = products.map(p => p.id)">Tout sélectionner</button>
+              <button class="psc-action-btn" @click="selectedProductIds = []">Tout désélectionner</button>
+            </div>
+          </div>
+          <div class="psc-grid">
+            <label
+              v-for="p in products"
+              :key="p.id"
+              class="psc-item"
+              :class="{ selected: selectedProductIds.includes(p.id) }"
+            >
+              <input
+                type="checkbox"
+                :value="p.id"
+                v-model="selectedProductIds"
+                class="psc-cb"
+              />
+              <div class="psc-info">
+                <span class="psc-id">{{ p.id }}</span>
+                <span class="psc-name">{{ p.name }}</span>
+              </div>
+              <svg v-if="selectedProductIds.includes(p.id)" width="14" height="14" fill="none" stroke="#22c55e" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            </label>
+          </div>
+          <div class="psc-footer">
+            <div>
+              <span class="psc-selected-count">
+                {{ selectedProductIds.length }} produit{{ selectedProductIds.length > 1 ? 's' : '' }} sélectionné{{ selectedProductIds.length > 1 ? 's' : '' }}
+              </span>
+              <span v-if="selectedProductIds.length > 0" class="psc-time-est">
+                <svg width="11" height="11" fill="none" stroke="#f59e0b" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Durée estimée : <b>{{ estimatedScoringTime }}</b>
+              </span>
+            </div>
+            <button
+              class="batch-btn"
+              @click="runBatchScoring"
+              :disabled="selectedProductIds.length === 0 || loadingProducts"
+            >
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+              Scorer {{ selectedProductIds.length || '' }} produit{{ selectedProductIds.length > 1 ? 's' : '' }}
+            </button>
+          </div>
         </div>
 
         <!-- Document upload -->
@@ -112,30 +210,24 @@
         >
           <div v-if="!uploadedDocs.length && !uploading" class="doc-upload-empty">
             <svg width="20" height="20" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.6" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-            <span>Drop PDF documents here or <label class="doc-upload-link">browse<input type="file" accept=".pdf,.txt" multiple @change="onFileSelect" hidden /></label></span>
-            <span class="doc-upload-hint">Optional — the agent will use them as additional sources</span>
+            <span>Drop PDF documents here or <label class="doc-upload-link">browse<input type="file" accept=".pdf,.txt,.jpg,.jpeg,.png,.tiff,.bmp,.webp" multiple @change="onFileSelect" hidden /></label></span>
+            <span class="doc-upload-hint">Optional — PDF, images (JPG/PNG/TIFF) and text files accepted</span>
           </div>
           <div v-else-if="uploadedDocs.length" class="doc-list">
+            <div v-if="uploadedDocs.length" class="doc-saved-notice">
+              📂 {{ uploadedDocs.length }} document(s) — rechargés automatiquement pour ce client
+            </div>
             <div v-for="(doc, i) in uploadedDocs" :key="i" class="doc-item">
               <svg width="13" height="13" fill="none" stroke="#4ade80" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
               <span class="doc-name">{{ doc.label }}</span>
               <span class="doc-size">{{ doc.chars.toLocaleString() }} chars</span>
               <button class="doc-remove" @click="removeDoc(i)">✕</button>
             </div>
-            <label class="doc-add-more">+ Add more<input type="file" accept=".pdf,.txt" multiple @change="onFileSelect" hidden /></label>
+            <label class="doc-add-more">+ Add more<input type="file" accept=".pdf,.txt,.jpg,.jpeg,.png,.tiff,.bmp,.webp" multiple @change="onFileSelect" hidden /></label>
           </div>
           <div v-if="uploading" class="doc-uploading"><span class="input-spin"></span> Extracting text…</div>
         </div>
 
-        <!-- Product list preview -->
-        <div v-if="products.length" class="products-preview">
-          <div class="preview-label">{{ products.length }} products will be evaluated</div>
-          <div class="preview-chips">
-            <span v-for="p in products" :key="p.id" class="preview-chip">
-              <span class="preview-chip-id">{{ p.id }}</span> {{ p.name }}
-            </span>
-          </div>
-        </div>
       </template>
 
       <!-- ── STEP 3: Batch running / results ──────────────── -->
@@ -159,31 +251,54 @@
             </svg>
             Batch qualification
           </div>
+          <button v-if="batchResult" class="pdf-btn" @click="downloadPdf" :disabled="pdfLoading">
+            <svg v-if="!pdfLoading" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            <span v-if="pdfLoading" class="input-spin" style="width:12px;height:12px;border-width:2px"></span>
+            {{ pdfLoading ? 'Generating…' : 'Download PDF' }}
+          </button>
           <button class="change-btn" @click="resetToStep1">
             <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
             New search
           </button>
         </div>
 
-        <!-- Loading -->
-        <div v-if="scoring" class="scoring-loading">
-          <div class="scoring-pulse"></div>
-          <div class="scoring-steps">
-            <div v-for="(s, i) in batchLoadingSteps" :key="i" class="scoring-step"
-              :class="{ active: i === currentStep, done: i < currentStep }">
-              <span class="step-dot"></span>{{ s }}
+        <!-- ── Progress operation (batch scoring) ────────────────── -->
+        <ProgressOperation
+          v-if="scoring"
+          :title="`Qualification de ${client?.client_name || 'ce client'}…`"
+          :phases="progress.phases.value"
+          :currentPhase="progress.currentPhase.value"
+          :pct="progress.pct.value"
+          :elapsed="progress.elapsed.value"
+          :remainingLabel="progress.remainingLabel.value"
+          :active="progress.active.value"
+        >
+          <!-- Mini product grid (live results) -->
+          <div v-if="batchResult?.results?.length" class="se-mini-grid">
+            <div
+              v-for="r in batchResult.results"
+              :key="r.product_id"
+              class="se-mini-card"
+              :class="r.summary?.eligibility_status"
+            >
+              <span class="se-mini-id">{{ r.product_id }}</span>
+              <span class="se-mini-elig">
+                {{ r.summary?.eligibility_status === 'eligible' ? '✓' : r.summary?.eligibility_status === 'to_review' ? '~' : '✗' }}
+              </span>
             </div>
           </div>
-        </div>
+        </ProgressOperation>
 
         <!-- Error -->
-        <div v-else-if="scoreError" class="error-bar">
+        <div v-if="scoreError" class="error-bar">
           ⚠️ {{ scoreError }}
           <button class="retry-btn" @click="runBatchScoring">Retry</button>
         </div>
 
-        <!-- Batch results -->
-        <div v-else-if="batchResult" class="batch-result-wrap">
+        <!-- Batch results — shown progressively as products arrive during streaming -->
+        <div v-if="batchResult && batchResult.results.length > 0" class="batch-result-wrap">
 
           <!-- Batch summary header -->
           <div class="batch-header">
@@ -315,9 +430,45 @@ import { useRouter } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
 import api from '../services/api'
 import { useScoringStore } from '../stores/scoring'
+import { useAuth } from '../auth/useAuth'
+import { useNotifications } from '../composables/useNotifications'
+import { useProgress }      from '../composables/useProgress'
+import ProgressOperation    from '../components/ProgressOperation.vue'
 
 const router = useRouter()
 const store  = useScoringStore()
+const { getToken } = useAuth()
+const { notify }  = useNotifications()
+const progress    = useProgress()
+
+// ── Scoring progress computed ──────────────────────────────────
+const totalProducts = computed(() =>
+  scoringMode.value === 'select' && selectedProductIds.value.length
+    ? selectedProductIds.value.length
+    : products.value.length || 15
+)
+const scoredCount   = computed(() => batchResult.value?.results?.length || 0)
+const estimatedTotal = computed(() => {
+  // ~12s for context + ~11s per round of 5 products
+  const rounds = Math.ceil(totalProducts.value / 5)
+  return 12 + rounds * 11
+})
+const scoringProgressPct = computed(() => {
+  if (!scoring.value) return 100
+  if (currentStep.value < 3) return 8   // context phase
+  const done = scoredCount.value / totalProducts.value
+  return Math.min(95, Math.round(8 + done * 87))
+})
+const estimatedRemaining = computed(() => {
+  if (!scoringStartTime.value || currentStep.value < 3) return estimatedTotal.value
+  const elapsed  = (Date.now() - scoringStartTime.value) / 1000
+  const done     = scoredCount.value
+  const total    = totalProducts.value
+  if (done === 0) return Math.max(0, estimatedTotal.value - elapsed)
+  const perProduct = elapsed / done
+  const remaining  = (total - done) * perProduct / 5
+  return Math.max(0, Math.round(remaining))
+})
 
 // ── Step state ───────────────────────────────────────────────
 const step = ref(1)
@@ -347,6 +498,10 @@ const batchResult          = ref(null)
 const selectedBatchProduct = ref(null)
 const currentStep          = ref(0)
 const detailCriterion      = ref(null)
+const pdfLoading           = ref(false)
+const scoringStartTime     = ref(null)
+const scoringMode          = ref('all')       // 'all' | 'select'
+const selectedProductIds   = ref([])
 
 const batchLoadingSteps = [
   'Fetching client data from CRM…',
@@ -372,6 +527,26 @@ const pageSubtitle = computed(() => {
     return `${s.succeeded}/${s.total} products scored in ${s.duration_seconds}s`
   }
   return `${client.value?.client_name} — qualifying all products…`
+})
+
+// ── Estimated scoring time ────────────────────────────────────
+const estimatedScoringTime = computed(() => {
+  const n = scoringMode.value === 'select' && selectedProductIds.value.length
+    ? selectedProductIds.value.length
+    : products.value.length || 15
+  const total = 12 + Math.ceil(n / 5) * 12
+  return total < 60 ? `~${total}s` : `~${Math.ceil(total / 60)} min`
+})
+
+const estimatedBreakdown = computed(() => {
+  const n = scoringMode.value === 'select' && selectedProductIds.value.length
+    ? selectedProductIds.value.length
+    : products.value.length || 15
+  return [
+    { icon: '🌐', label: 'Collecte web · LinkedIn · actualités', time: '~12s' },
+    { icon: '🤖', label: `Évaluation IA · ${n} produit${n > 1 ? 's' : ''} · 5 en parallèle`, time: `~${Math.ceil(n / 5) * 12}s` },
+    { icon: '📊', label: 'Calcul des scores · génération rapport', time: '~5s' },
+  ]
 })
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -464,9 +639,18 @@ async function pickClient(item) {
   showDropdown.value = false
   step.value = 2
   loadingProducts.value = true
+  uploadedDocs.value = []
   try {
-    const res = await api.listProducts()
-    products.value = res.data || []
+    const [prodRes, docsRes] = await Promise.all([
+      api.listProducts(),
+      api.getClientDocuments(item.client_id),
+    ])
+    products.value = prodRes.data || []
+    // Auto-load previously saved documents for this client
+    const savedDocs = docsRes.data || []
+    if (savedDocs.length) {
+      uploadedDocs.value = savedDocs
+    }
   } catch { products.value = [] }
   finally { loadingProducts.value = false }
 }
@@ -475,25 +659,90 @@ function resetToStep1() {
   step.value = 1; client.value = null; batchResult.value = null
   scoreError.value = ''; searchQuery.value = ''; suggestions.value = []
   selectedBatchProduct.value = null
+  scoringMode.value = 'all'; selectedProductIds.value = []
 }
 
-// ── Step 2 → Step 3: launch batch ────────────────────────────
+// ── Step 2 → Step 3: launch batch (SSE streaming) ────────────
 async function runBatchScoring() {
   step.value = 3
-  scoring.value = true; scoreError.value = ''; batchResult.value = null; currentStep.value = 0
-  const stepTimer = setInterval(() => {
-    if (currentStep.value < batchLoadingSteps.length - 1) currentStep.value++
-  }, 2000)
+  scoring.value = true
+  scoreError.value = ''
+  currentStep.value = 0
+  scoringStartTime.value = Date.now()
+  progress.start('batch_scoring')
+  // Initialise batchResult with empty results so the grid renders immediately
+  batchResult.value = {
+    results: [],
+    batch_summary: { total: products.value.length, succeeded: 0, failed: 0, duration_seconds: 0 },
+  }
+
   try {
     const docs = uploadedDocs.value.map(d => ({ label: d.label, text: d.text }))
-    const res = await api.runBatchScoring(client.value.client_id, docs)
-    clearInterval(stepTimer)
-    if (res.data.error) { scoreError.value = res.data.detail || res.data.error; return }
-    batchResult.value = res.data
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+    const response = await fetch(`${apiBase}/api/scoring/batch/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${getToken()}`,
+      },
+      body: JSON.stringify({
+        client_id:   client.value.client_id,
+        documents:   docs,
+        product_ids: scoringMode.value === 'select' ? selectedProductIds.value : [],
+      }),
+      signal: AbortSignal.timeout(600_000),
+    })
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.detail || `HTTP ${response.status}`)
+    }
+
+    const reader  = response.body.getReader()
+    const decoder = new TextDecoder()
+    let   buffer  = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const parts = buffer.split('\n\n')
+      buffer = parts.pop() || ''
+      for (const part of parts) {
+        if (!part.startsWith('data: ')) continue
+        try { handleStreamEvent(JSON.parse(part.slice(6))) } catch {}
+      }
+    }
   } catch (e) {
-    clearInterval(stepTimer)
-    scoreError.value = e.response?.data?.detail || e.message || 'Unexpected error'
-  } finally { scoring.value = false }
+    scoreError.value = e.message || 'Unexpected error'
+  } finally {
+    scoring.value = false
+  }
+}
+
+function handleStreamEvent(ev) {
+  if (ev.type === 'context_ready') {
+    currentStep.value = 3
+    progress.setPhase(3)   // jump to "Évaluation des critères"
+  } else if (ev.type === 'product_result') {
+    if (!batchResult.value) return
+    batchResult.value.results.push(ev.result)
+    if (ev.result.status === 'success') batchResult.value.batch_summary.succeeded++
+    else                                batchResult.value.batch_summary.failed++
+    progress.setProductProgress(batchResult.value.results.length, batchResult.value.batch_summary.total)
+  } else if (ev.type === 'done') {
+    if (batchResult.value) batchResult.value.batch_summary.duration_seconds = ev.summary.duration_seconds
+    progress.finish()
+    // ── Notification scoring terminé ──────────────────────
+    const eligible = (batchResult.value?.results || []).filter(r => r.summary?.eligibility_status === 'eligible').length
+    notify('✅ Scoring terminé !', {
+      body: `${client.value?.client_name} — ${ev.summary.succeeded}/${ev.summary.total} produits scorés en ${ev.summary.duration_seconds}s · ${eligible} éligible(s)`,
+      type: 'success',
+    })
+  } else if (ev.type === 'error') {
+    scoreError.value = ev.detail || 'Scoring error'
+    notify('❌ Erreur de scoring', { body: ev.detail || 'Une erreur est survenue.', type: 'error' })
+  }
 }
 
 // ── Document upload ──────────────────────────────────────
@@ -501,15 +750,52 @@ async function uploadFiles(files) {
   for (const file of files) {
     uploading.value = true
     try {
-      const res = await api.uploadDocument(file)
-      if (res.data.status === 'ok') uploadedDocs.value.push({ label: res.data.label, text: res.data.text, chars: res.data.chars })
+      const clientId = client.value?.client_id
+      const res = await api.uploadDocument(file, clientId)
+      if (res.data.status === 'ok') {
+        // Avoid duplicates
+        uploadedDocs.value = uploadedDocs.value.filter(d => d.label !== res.data.label)
+        uploadedDocs.value.push({ label: res.data.label, text: res.data.text, chars: res.data.chars })
+      }
     } catch (e) { console.error('Upload failed:', e) }
     finally { uploading.value = false }
   }
 }
 function onFileSelect(e) { uploadFiles([...e.target.files]); e.target.value = '' }
 function onDrop(e) { dragOver.value = false; uploadFiles([...e.dataTransfer.files]) }
-function removeDoc(idx) { uploadedDocs.value.splice(idx, 1) }
+async function removeDoc(idx) {
+  const doc = uploadedDocs.value[idx]
+  uploadedDocs.value.splice(idx, 1)
+  if (client.value?.client_id && doc?.label) {
+    try { await api.removeClientDocument(client.value.client_id, doc.label) } catch {}
+  }
+}
+
+// ── PDF download ─────────────────────────────────────────────
+async function downloadPdf() {
+  if (!client.value || !batchResult.value) return
+  pdfLoading.value = true
+  progress.start('pdf_generation')
+  try {
+    const res = await api.downloadPdfReport(client.value, batchResult.value)
+    const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `sellynx_${client.value.client_name.replace(/\s+/g, '_')}.pdf`
+    a.click()
+    URL.revokeObjectURL(url)
+    progress.finish()
+    notify('📄 Rapport PDF généré !', {
+      body: `Le rapport de ${client.value.client_name} est prêt et téléchargé.`,
+      type: 'info',
+    })
+  } catch (e) {
+    console.error('PDF generation failed:', e)
+    notify('❌ Erreur PDF', { body: 'La génération du rapport a échoué.', type: 'error' })
+  } finally {
+    pdfLoading.value = false
+  }
+}
 
 onMounted(() => document.addEventListener('mousedown', handleClickOutside))
 onBeforeUnmount(() => document.removeEventListener('mousedown', handleClickOutside))
@@ -533,7 +819,16 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', handleClickOutsi
 .search-input::placeholder { color: rgba(255,255,255,0.2); }
 .input-spin { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.15); border-top-color: #E8622C; border-radius: 50%; animation: spin 0.7s linear infinite; }
 .search-input.id-mode { border-color: rgba(99,179,237,0.5); box-shadow: 0 0 0 3px rgba(99,179,237,0.08); font-family: monospace; letter-spacing: 0.5px; }
-.id-badge { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 10px; font-weight: 800; letter-spacing: 1px; color: #63b3ed; background: rgba(99,179,237,0.12); border: 1px solid rgba(99,179,237,0.3); padding: 2px 7px; border-radius: 6px; }
+.id-badge   { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 10px; font-weight: 800; letter-spacing: 1px; color: #63b3ed; background: rgba(99,179,237,0.12); border: 1px solid rgba(99,179,237,0.3); padding: 2px 7px; border-radius: 6px; }
+.name-badge { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 10px; font-weight: 800; letter-spacing: 1px; color: #E8622C; background: rgba(232,98,44,0.10); border: 1px solid rgba(232,98,44,0.3); padding: 2px 7px; border-radius: 6px; }
+
+.search-hints { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.search-hint { display: flex; align-items: center; gap: 5px; font-size: 11px; color: rgba(255,255,255,0.25); transition: color 0.2s; }
+.search-hint.active { color: rgba(255,255,255,0.6); }
+.search-hint-sep { color: rgba(255,255,255,0.15); font-size: 11px; }
+
+.dropdown-header { padding: 8px 14px 4px; font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.25); text-transform: uppercase; letter-spacing: 0.5px; }
+.no-results { display: flex; align-items: center; gap: 10px; }
 
 .dropdown { position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 200; background: #0d1f38; border: 1px solid rgba(232,98,44,0.25); border-radius: 12px; overflow: hidden; box-shadow: 0 16px 48px rgba(0,0,0,0.5); max-height: 300px; overflow-y: auto; }
 .dropdown-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.12s; }
@@ -560,6 +855,9 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', handleClickOutsi
 .client-bar-emp { font-size: 11px; color: rgba(255,255,255,0.35); }
 .change-btn { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: rgba(255,255,255,0.5); font-size: 12.5px; cursor: pointer; white-space: nowrap; transition: all 0.18s; flex-shrink: 0; }
 .change-btn:hover { color: #fff; border-color: rgba(255,255,255,0.2); }
+.pdf-btn { display: flex; align-items: center; gap: 7px; padding: 8px 16px; background: linear-gradient(135deg, #1B2A4A, #243558); border: 1px solid rgba(27,42,74,0.8); border-radius: 8px; color: #fff; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.18s; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+.pdf-btn:hover:not(:disabled) { background: linear-gradient(135deg, #243558, #2d4270); border-color: rgba(232,98,44,0.4); box-shadow: 0 4px 14px rgba(0,0,0,0.4); }
+.pdf-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .product-pill { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(232,98,44,0.1); border: 1px solid rgba(232,98,44,0.25); border-radius: 99px; color: #E8622C; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
 
 /* ── Products grid ── */
@@ -582,6 +880,42 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', handleClickOutsi
 .product-cta { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: #E8622C; margin-top: 4px; }
 
 /* ── Scoring loading ── */
+/* ── Rich scoring experience ── */
+.scoring-experience { display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 32px 24px; background: rgba(255,255,255,0.02); border: 1px solid rgba(232,98,44,0.15); border-radius: 18px; margin-bottom: 20px; }
+
+.se-pulse-ring { position: relative; width: 80px; height: 80px; }
+.se-pulse-ring::before, .se-pulse-ring::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(232,98,44,0.25); animation: se-pulse 2s ease-out infinite; }
+.se-pulse-ring::after { animation-delay: 1s; }
+.se-pulse-core { position: absolute; inset: 14px; background: rgba(232,98,44,0.1); border: 1px solid rgba(232,98,44,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; animation: se-glow 2s ease-in-out infinite; }
+@keyframes se-pulse { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(1.6); opacity: 0; } }
+@keyframes se-glow  { 0%,100% { box-shadow: 0 0 0 0 rgba(232,98,44,0); } 50% { box-shadow: 0 0 20px 4px rgba(232,98,44,0.3); } }
+
+.se-step-label { font-size: 14px; color: rgba(255,255,255,0.7); text-align: center; line-height: 1.6; }
+.se-step-tag { display: inline-block; background: rgba(232,98,44,0.15); border: 1px solid rgba(232,98,44,0.3); color: #E8622C; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; padding: 2px 9px; border-radius: 99px; margin-right: 8px; }
+.se-count { color: #fff; font-weight: 800; font-size: 16px; }
+
+.se-progress-wrap { display: flex; align-items: center; gap: 12px; width: 100%; max-width: 400px; }
+.se-progress-track { flex: 1; height: 6px; background: rgba(255,255,255,0.07); border-radius: 99px; overflow: hidden; }
+.se-progress-fill { height: 100%; background: linear-gradient(90deg, #E8622C, #ff9a6c); border-radius: 99px; transition: width 0.8s ease; }
+.se-progress-pct { font-size: 12px; font-weight: 700; color: #E8622C; width: 36px; text-align: right; }
+
+.se-time { display: flex; align-items: center; gap: 7px; font-size: 13px; color: rgba(255,255,255,0.4); }
+.se-time b { color: rgba(255,255,255,0.8); font-weight: 700; }
+
+.se-mini-grid { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; max-width: 480px; }
+.se-mini-card { display: flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 8px; font-size: 11px; font-weight: 600; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
+.se-mini-card.eligible { background: rgba(34,197,94,0.1); border-color: rgba(34,197,94,0.25); }
+.se-mini-card.to_review { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.25); }
+.se-mini-card.not_eligible { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.2); }
+.se-mini-id { color: rgba(255,255,255,0.5); font-family: monospace; font-size: 10px; }
+.se-mini-elig { font-size: 12px; }
+.se-mini-card.eligible .se-mini-elig { color: #22c55e; }
+.se-mini-card.to_review .se-mini-elig { color: #f59e0b; }
+.se-mini-card.not_eligible .se-mini-elig { color: #f87171; }
+
+.stream-progress { display: flex; align-items: center; gap: 12px; background: rgba(232,98,44,0.06); border: 1px solid rgba(232,98,44,0.2); border-radius: 12px; padding: 12px 18px; margin-bottom: 16px; font-size: 13px; color: rgba(255,255,255,0.7); }
+.stream-spin { width: 16px; height: 16px; border: 2px solid rgba(232,98,44,0.3); border-top-color: #E8622C; border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+.stream-progress b { color: #fff; font-weight: 700; }
 .scoring-loading { display: flex; flex-direction: column; align-items: center; gap: 32px; padding: 60px 0; }
 .scoring-pulse { width: 64px; height: 64px; border-radius: 50%; border: 2px solid rgba(232,98,44,0.3); position: relative; }
 .scoring-pulse::after { content: '⚡'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 24px; animation: pulse 1.4s ease-in-out infinite; }
@@ -685,17 +1019,56 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', handleClickOutsi
 .doc-size { font-size: 11px; color: rgba(255,255,255,0.3); flex-shrink: 0; }
 .doc-remove { background: none; border: none; color: rgba(255,255,255,0.3); cursor: pointer; font-size: 13px; flex-shrink: 0; padding: 0 4px; }
 .doc-remove:hover { color: #f87171; }
+.doc-saved-notice { font-size: 11px; color: #63b3ed; background: rgba(99,179,237,0.08); border: 1px solid rgba(99,179,237,0.2); border-radius: 6px; padding: 5px 10px; margin-bottom: 6px; }
 .doc-uploading { display: flex; align-items: center; gap: 8px; font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 8px; }
 .doc-add-more { font-size: 12px; color: rgba(232,98,44,0.7); cursor: pointer; padding: 4px 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── Batch launch card (step 2) ── */
+/* ── Mode selector ── */
+.mode-selector { display: flex; gap: 8px; margin-bottom: 16px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 6px; }
+.mode-tab { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px; border-radius: 8px; border: none; background: none; color: rgba(255,255,255,0.4); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.18s; }
+.mode-tab:hover { color: rgba(255,255,255,0.7); }
+.mode-tab.active { background: rgba(232,98,44,0.12); color: #fff; border: 1px solid rgba(232,98,44,0.3); }
+.mode-count { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 20px; padding: 0 6px; background: rgba(255,255,255,0.1); border-radius: 99px; font-size: 11px; font-weight: 800; color: rgba(255,255,255,0.6); }
+.mode-count.orange { background: rgba(232,98,44,0.2); color: #E8622C; }
+
+/* ── Product select card ── */
+.product-select-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; margin-bottom: 20px; overflow: hidden; }
+.psc-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.psc-title { font-size: 14px; font-weight: 700; color: #fff; }
+.psc-actions { display: flex; gap: 8px; }
+.psc-action-btn { font-size: 11px; color: rgba(255,255,255,0.4); background: none; border: 1px solid rgba(255,255,255,0.1); border-radius: 7px; padding: 4px 10px; cursor: pointer; transition: all 0.15s; }
+.psc-action-btn:hover { color: #fff; border-color: rgba(255,255,255,0.2); }
+.psc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1px; background: rgba(255,255,255,0.04); max-height: 320px; overflow-y: auto; }
+.psc-item { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: rgba(10,22,40,0.8); cursor: pointer; transition: background 0.15s; user-select: none; }
+.psc-item:hover { background: rgba(255,255,255,0.04); }
+.psc-item.selected { background: rgba(34,197,94,0.07); }
+.psc-cb { width: 15px; height: 15px; accent-color: #22c55e; cursor: pointer; flex-shrink: 0; }
+.psc-info { flex: 1; min-width: 0; }
+.psc-id { display: block; font-size: 11px; font-weight: 800; color: #E8622C; font-family: monospace; }
+.psc-name { display: block; font-size: 12px; color: rgba(255,255,255,0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.psc-footer { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-top: 1px solid rgba(255,255,255,0.06); }
+.psc-selected-count { font-size: 13px; color: rgba(255,255,255,0.4); }
+
 .batch-launch-card { display: flex; align-items: center; gap: 20px; padding: 28px 28px; background: rgba(232,98,44,0.06); border: 1px solid rgba(232,98,44,0.25); border-radius: 16px; margin-bottom: 20px; }
 .batch-launch-icon { width: 60px; height: 60px; background: rgba(232,98,44,0.12); border: 1px solid rgba(232,98,44,0.3); border-radius: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .batch-launch-text { flex: 1; }
 .batch-launch-title { font-size: 18px; font-weight: 800; color: #fff; margin-bottom: 6px; }
 .batch-launch-sub { font-size: 13px; color: rgba(255,255,255,0.45); line-height: 1.6; }
 .batch-launch-sub strong { color: rgba(255,255,255,0.8); }
+
+/* ── Time estimate ── */
+.time-estimate-row { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06); }
+.time-estimate-row > svg { flex-shrink: 0; }
+.time-estimate-main { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: rgba(255,255,255,0.5); }
+.time-estimate-main b { color: #f59e0b; font-size: 14px; }
+.time-estimate-breakdown { display: flex; flex-direction: column; gap: 3px; margin-top: 2px; }
+.teb-item { font-size: 11px; color: rgba(255,255,255,0.3); display: flex; align-items: center; gap: 6px; }
+.teb-item em { font-style: normal; color: rgba(255,255,255,0.5); font-weight: 600; margin-left: auto; }
+
+.psc-time-est { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: rgba(255,255,255,0.35); margin-top: 4px; }
+.psc-time-est b { color: #f59e0b; }
 .batch-btn { display: flex; align-items: center; gap: 8px; padding: 13px 24px; background: linear-gradient(135deg, #E8622C, #ff7a45); color: #fff; font-size: 14px; font-weight: 700; border: none; border-radius: 12px; cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: all 0.2s; }
 .batch-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(232,98,44,0.4); }
 .batch-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }

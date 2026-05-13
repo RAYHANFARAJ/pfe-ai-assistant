@@ -29,9 +29,18 @@ class Settings(BaseSettings):
     max_choice_size: int = 5000
     log_level: str = "INFO"
 
-    keycloak_url: str = "http://localhost:8080"          # used for issuer validation (must match token)
-    keycloak_internal_url: Optional[str] = None          # used for JWKS fetch (Docker internal address)
+    keycloak_url: str = "http://localhost:8080"
+    keycloak_internal_url: Optional[str] = None
     keycloak_realm: str = "sellynx"
+    keycloak_admin_user: str = "admin"
+    keycloak_admin_password: str = "admin"
+
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_db: int = 0
+    redis_password: Optional[str] = None
+    redis_enabled: bool = True
+    redis_cache_ttl: int = 3600  # 1 hour in seconds
 
     model_config = SettingsConfigDict(
         # .env.local (if present) overrides .env — use it for local dev without VPN

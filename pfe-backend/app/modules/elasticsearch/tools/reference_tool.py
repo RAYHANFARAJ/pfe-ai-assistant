@@ -53,7 +53,20 @@ class ESReferenceTool:
     # ------------------------------------------------------------------
 
     def _load_json(self, path: Path) -> List[Dict[str, Any]]:
-        if not path.exists():
-            return []
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            from app.services.cache.reference_cache import reference_cache
+            key = str(path)
+            cached = reference_cache.get(key)
+            if cached is not None:
+                return cached
+            if not path.exists():
+                return []
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            reference_cache.set(key, data)
+            return data
+        except Exception:
+            if not path.exists():
+                return []
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)

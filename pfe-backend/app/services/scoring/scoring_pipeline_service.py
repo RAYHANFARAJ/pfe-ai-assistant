@@ -13,61 +13,64 @@ class ScoringPipelineService:
         self.score_mapper = ScoreMapperService()
         self.quality_checker = DataQualityService()
 
+    def run_quick(self, client_id: str, product_id: str) -> Dict[str, Any]:
+        """CRM-only scoring — no web crawl. ~3-5s/client vs ~30s. For campaign ranking."""
+        result = self.agent.run_crm_only(client_id=client_id, product_id=product_id)
+        return self._process(result, quick_mode=True)
+
     def run(self, client_id: str, product_id: str) -> Dict[str, Any]:
-        orchestration_result = self.agent.run(client_id=client_id, product_id=product_id)
+        result = self.agent.run(client_id=client_id, product_id=product_id)
+        return self._process(result, quick_mode=False)
 
-        product = orchestration_result["product"]
+    def _process(self, orchestration_result: Dict[str, Any], quick_mode: bool = False) -> Dict[str, Any]:
+        """Shared post-processing: tree walk → score → quality report."""
+        if "error" in orchestration_result:
+            return orchestration_result
+
+        product = orchestration_result.get("product")
         if not product:
-            return {"error": f"Product '{product_id}' not found."}
+            return {"error": "Product not found.", "trace": orchestration_result.get("trace", [])}
 
-        if orchestration_result["client_data"] is None:
+        if orchestration_result.get("client_data") is None:
             return {
                 "error": "client_data_unavailable",
-                "detail": (
-                    f"Client '{client_id}' could not be retrieved from Elasticsearch. "
-                    "Elasticsearch may be unreachable or the client_id does not exist. "
-                    "Check /api/debug/es/health and /api/debug/es/client/{client_id}."
-                ),
-                "trace": orchestration_result["trace"],
+                "detail": "Client could not be retrieved from Elasticsearch.",
+                "trace": orchestration_result.get("trace", []),
             }
 
-        # Build a lookup of raw criterion results by id
         raw_by_id: Dict[str, Dict[str, Any]] = {
             item["criterion_id"]: item
-            for item in orchestration_result["criteria_results"]
+            for item in orchestration_result.get("criteria_results", [])
         }
-        # Build criterion order from original list (already deduplicated in data)
         criteria_order: List[str] = [
-            item["criterion_id"] for item in orchestration_result["criteria_results"]
+            item["criterion_id"] for item in orchestration_result.get("criteria_results", [])
         ]
 
-        scored_criteria, blocking_triggered = self._walk_tree(
-            criteria_order, raw_by_id
-        )
-
-        summary = self.score_mapper.aggregate(scored_criteria, blocking_triggered)
+        scored_criteria, blocking_triggered = self._walk_tree(criteria_order, raw_by_id)
+        summary      = self.score_mapper.aggregate(scored_criteria, blocking_triggered)
         quality_report = self.quality_checker.evaluate(scored_criteria)
-        client_data = orchestration_result["client_data"] or {}
+        client_data  = orchestration_result.get("client_data") or {}
 
         return {
-            "demo_mode": orchestration_result.get("demo_mode", False),
-            "trace": orchestration_result["trace"],
+            "demo_mode":  orchestration_result.get("demo_mode", False),
+            "quick_mode": quick_mode,
+            "trace":      orchestration_result.get("trace", []),
             "client": {
-                "client_id": client_data.get("client_id"),
+                "client_id":   client_data.get("client_id"),
                 "client_name": client_data.get("client_name"),
-                "sector": client_data.get("sector"),
-                "website": client_data.get("website"),
-                "linkedin": client_data.get("linkedin"),
+                "sector":      client_data.get("sector"),
+                "website":     client_data.get("website"),
+                "linkedin":    client_data.get("linkedin"),
             },
             "product": {
-                "product_id": product.get("id"),
+                "product_id":   product.get("id"),
                 "product_name": product.get("name"),
             },
             "summary": {
                 "criteria_count": len(scored_criteria),
                 **summary,
             },
-            "data_quality": quality_report.model_dump(),
+            "data_quality":    quality_report.model_dump(),
             "criteria_results": scored_criteria,
         }
 

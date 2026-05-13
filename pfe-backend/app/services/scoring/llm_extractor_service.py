@@ -58,55 +58,136 @@ _TEXT_SCHEMA = """{
   "reasoning": "<one sentence explaining validity>"
 }"""
 
-# ── Business validation constants ────────────────────────────────────────────
+# ── Business validation constants (FR + ES + EN) ─────────────────────────────
 
-_PCT_KEYWORDS = {"part", "ratio", "taux", "pourcent", "proportion", "alternant", "%"}
-_RECRUIT_KEYWORDS = {"recrutement", "recrut", "embauche", "hiring"}
+_PCT_KEYWORDS = {
+    # French
+    "part", "taux", "pourcent", "proportion", "alternant", "%",
+    # Spanish
+    "porcentaje", "tasa", "proporción",
+    # English
+    "ratio", "percent", "percentage",
+}
+_RECRUIT_KEYWORDS = {
+    # French
+    "recrutement", "recrut", "embauche",
+    # Spanish
+    "contratación", "contratar", "reclutamiento", "selección",
+    # English
+    "hiring", "recruit",
+}
 _EMPLOYEE_KEYWORDS = {
+    # French
     "effectif", "salarié", "employé", "collaborateur",
+    # Spanish
+    "empleado", "trabajador", "plantilla", "empleados", "trabajadores",
+    # English
     "employee", "staff", "headcount", "workforce", "personnel",
 }
 
 # Evidence sentence quality: anchored UI/nav patterns at start of sentence
 _JUNK_PATTERNS = re.compile(
-    r"^(?:accueil|home|menu|navigation|footer|header|"
-    r"retour|back|suivant|next|cookies?|cgv|mentions légales|"
-    r"copyright|©|\d{4}\s*[-–]\s*\d{4})",
+    r"^(?:"
+    # French nav
+    r"accueil|retour|suivant|mentions légales|cgv|"
+    # Spanish nav
+    r"inicio|volver|siguiente|política de privacidad|aviso legal|"
+    r"condiciones de uso|mapa del sitio|"
+    # English nav
+    r"home|back|next|"
+    # Generic
+    r"menu|navigation|footer|header|cookies?|copyright|©|\d{4}\s*[-–]\s*\d{4}"
+    r")",
     re.I,
 )
 
 # UI noise anywhere in the evidence sentence
 _NOISE_IN_EVIDENCE = re.compile(
-    r"s'inscrire|se connecter|connexion|sign in|sign up|log in|"
-    r"check your spam|vérifiez vos spams|spam folder|dossier spam|"
+    r"s'inscrire|se connecter|connexion|"                          # FR auth
+    r"registrarse|iniciar.?sesión|cerrar.?sesión|"                 # ES auth
+    r"sign in|sign up|log in|log out|"                             # EN auth
+    r"check your spam|vérifiez vos spams|compruebe su spam|"       # spam
     r"cookie|privacy policy|politique de confidentialit|"
-    r"terms of service|conditions d.utilisation|mentions légales|"
-    r"renvoyer l.e-mail|resend|forgot password|"
-    r"télécharger l.application|download the app|"
-    r"mot de passe|password|e-mail address",
+    r"política de privacidad|aviso legal|"
+    r"terms of service|conditions d.utilisation|términos de uso|"
+    r"renvoyer l.e-mail|resend|reenviar|forgot password|"
+    r"télécharger l.application|download the app|descargar la app|"
+    r"mot de passe|contraseña|password|e-mail address",
     re.IGNORECASE,
 )
 
-# ── Domain relevance keywords ────────────────────────────────────────────────
+# ── Domain relevance keywords (FR + ES + EN) ─────────────────────────────────
 # Evidence must contain at least one of these substrings to be considered
-# semantically relevant to an HR / R&D eligibility criterion.
-# Using substrings so "recrutement" matches "recrut", etc.
+# semantically relevant to an eligibility criterion.
 _DOMAIN_SUBSTRINGS: List[str] = [
-    # Headcount / staffing
-    "effectif", "salari", "employé", "collaborateur", "personnel",
+    # ── Headcount / staffing ──────────────────────────────────────────────────
+    # FR
+    "effectif", "salari", "employé", "collaborateur",
+    # ES
+    "empleado", "trabajador", "plantilla", "personal",
+    # EN
     "employee", "staff", "headcount", "workforce",
-    # Recruitment
-    "recrutement", "recrut", "embauche", "embaucher", "hiring", "hire",
-    # Apprenticeship / alternance
+    # ── Recruitment ──────────────────────────────────────────────────────────
+    # FR
+    "recrutement", "recrut", "embauche", "embaucher",
+    # ES
+    "contratación", "contratar", "reclutamiento", "selección de personal",
+    # EN
+    "hiring", "hire",
+    # ── Apprenticeship / alternance ───────────────────────────────────────────
+    # FR
     "alternant", "alternance", "apprenti", "apprentissage", "professionnalis",
-    # Training
-    "formation", "plan de formation", "cpf", "opco", "training",
-    # HR / company structure
-    "rh", "ressources humaines", "human resources",
-    # R&D / innovation (for related criteria)
-    "innovation", "r&d", "recherche", "développement", "technologie",
-    # Size / growth
-    "croissance", "effectif", "taille", "entreprise", "société",
+    # ES
+    "aprendiz", "prácticas", "formación dual", "becario",
+    # ── Training ─────────────────────────────────────────────────────────────
+    # FR
+    "formation", "plan de formation", "cpf", "opco",
+    # ES
+    "capacitación", "formación profesional", "curso",
+    # EN
+    "training",
+    # ── HR / company structure ────────────────────────────────────────────────
+    # FR
+    "ressources humaines",
+    # ES
+    "recursos humanos", "rrhh",
+    # EN
+    "human resources",
+    # ── R&D / innovation ─────────────────────────────────────────────────────
+    # FR
+    "recherche", "développement",
+    # ES
+    "investigación", "desarrollo", "i+d",
+    # EN/Universal
+    "innovation", "r&d", "technologie", "tecnología", "technology",
+    # ── Finance / revenue ─────────────────────────────────────────────────────
+    # FR
+    "chiffre d'affaires", "revenus", "bénéfice",
+    # ES
+    "facturación", "ingresos", "beneficio", "cifra de negocios", "ventas",
+    # EN
+    "revenue", "turnover", "profit",
+    # ── Energy / environment ──────────────────────────────────────────────────
+    # FR
+    "énergie", "consommation", "émissions", "carbone",
+    # ES
+    "energía", "consumo", "emisiones", "carbono", "huella",
+    # EN
+    "energy", "carbon", "emissions",
+    # ── Tax / fiscal ──────────────────────────────────────────────────────────
+    # FR
+    "fiscalité", "taxe", "impôt", "déduction",
+    # ES
+    "impuesto", "tributario", "fiscal", "deducción", "hacienda",
+    # EN
+    "tax", "deduction",
+    # ── Size / growth ─────────────────────────────────────────────────────────
+    # FR
+    "croissance", "taille", "entreprise", "société",
+    # ES
+    "crecimiento", "tamaño", "empresa", "sociedad",
+    # EN
+    "growth", "company", "organization",
 ]
 
 
@@ -167,6 +248,29 @@ class LLMExtractorService:
         if not passages:
             return ExtractionResult(reasoning="No relevant passages retrieved for this criterion.")
 
+        # ── LLM Cache check ──────────────────────────────────────────────────
+        _passage_texts = [p.get("text", "") for p in passages[:5]]
+        try:
+            from app.services.cache.llm_cache import get_extraction, set_extraction as _set_llm
+            _cached_extraction = get_extraction(criterion_label, answer_type, _passage_texts)
+            if _cached_extraction:
+                return ExtractionResult(**{
+                    k: v for k, v in _cached_extraction.items()
+                    if k in ExtractionResult.model_fields
+                })
+        except Exception:
+            _set_llm = None
+
+        # ── RAG: retrieve few-shot examples for this criterion type ──────────
+        _few_shot_block = ""
+        try:
+            from app.services.rag.knowledge_base import retrieve_examples, format_examples_for_prompt
+            _examples = retrieve_examples(criterion_label, answer_type, label_embedding=None)
+            if _examples:
+                _few_shot_block = format_examples_for_prompt(_examples) + "\n\n"
+        except Exception:
+            pass
+
         # Build combined context from top passages (capped at MAX_CONTEXT_CHARS)
         context_blocks: List[str] = []
         used_passages: List[Dict[str, Any]] = []
@@ -184,7 +288,7 @@ class LLMExtractorService:
             used_passages.append(p)
             total += len(block)
 
-        context = "\n\n---\n\n".join(context_blocks)
+        context = _few_shot_block + "\n\n---\n\n".join(context_blocks)
 
         # Source metadata is resolved AFTER extraction, based on which passage
         # actually contains the evidence sentence (see _resolve_source below).
@@ -226,6 +330,28 @@ class LLMExtractorService:
         # Business-rule validation (modifies in place)
         result = self._validate(result, criterion_label, unit, answer_type, choices)
 
+        # ── Persist to LLM cache and RAG knowledge base ──────────────────────
+        if result.is_valid and result.confidence >= 0.4:
+            try:
+                from app.services.cache.llm_cache import set_extraction as _set_llm_cache
+                _set_llm_cache(criterion_label, answer_type, _passage_texts, result.model_dump())
+            except Exception:
+                pass
+            try:
+                from app.services.rag.knowledge_base import store_entry
+                store_entry(
+                    criterion_id=criterion_label,
+                    criterion_label=criterion_label,
+                    answer_type=answer_type,
+                    predicted_answer=str(result.predicted_answer or ""),
+                    confidence=result.confidence,
+                    evidence_sentence=result.evidence_sentence or "",
+                    reasoning=result.reasoning or "",
+                    label_embedding=None,
+                )
+            except Exception:
+                pass
+
         return result
 
     # ── Type-specific extractors ────────────────────────────────────────────
@@ -263,17 +389,20 @@ class LLMExtractorService:
                 )
 
         prompt = (
-            f"You extract company data for a French R&D/innovation eligibility assessment.\n\n"
-            f"CRITERION: {label}\n"
+            f"You extract company data for an eligibility assessment.\n\n"
+            f"CRITERION (in French): {label}\n"
             f"UNIT: {unit or 'not specified'}\n\n"
+            f"LANGUAGE NOTE: The criterion is in French but passages may be in French, Spanish, or English. "
+            f"Apply the same extraction logic regardless of language. "
+            f"Match semantically: 'effectif'='empleados'='employees', 'chiffre d affaires'='facturación'='revenue', etc.\n\n"
             f"PASSAGES (pre-selected as most relevant):\n\"\"\"\n{context}\n\"\"\"\n\n"
-            f"TASK: Find the single number that directly and explicitly quantifies '{label}'.\n"
+            f"TASK: Find the single number that directly and explicitly quantifies '{label}' (in any language).\n"
             f"If no exact number exists but the passage gives a clear qualitative range "
-            f"(e.g. 'plusieurs dizaines de millions', 'more than 100', 'under 50'), "
+            f"(e.g. 'plusieurs dizaines de millions', 'más de 100', 'more than 100', 'under 50'), "
             f"extract the most conservative defensible estimate.\n\n"
             f"STRICT REJECTION RULES — set found=false, extracted_value=null, is_valid=false if:\n"
             f"• The number comes from a page title, navigation, footer, copyright, or meta text\n"
-            f"• The number is a price, phone number, postal code, year, SIRET/SIREN, or registration ID\n"
+            f"• The number is a price, phone number, postal code, year, SIRET/SIREN, CIF, NIF, or registration ID\n"
             f"• The number is used in a sentence unrelated to '{label}'\n"
             f"• The evidence_sentence is empty, shorter than 10 words, or identical to the criterion\n"
             f"• No sentence in the passages quantifies or estimates '{label}' in any way\n"
@@ -309,14 +438,28 @@ class LLMExtractorService:
         valid_labels = [c.get("label", "") for c in choices if c.get("label")]
         is_multi = answer_type == "multiple_choice"
 
+        # Explain range-style labels (e.g. "< 2", ">= 2") so the LLM understands them
+        range_hint = ""
+        import re as _re
+        range_labels = [l for l in valid_labels if _re.match(r'^[<>]=?\s*\d', l.strip())]
+        if range_labels:
+            range_hint = (
+                f"\nNOTE: The OPTIONS use range labels (e.g. '< 2', '>= 2'). "
+                f"They refer to the COUNT or QUANTITY implied by the criterion. "
+                f"Read the passage, estimate the count/quantity, then select the matching range label.\n"
+            )
+
         prompt = (
             f"You determine which option applies to a company for an eligibility assessment.\n\n"
-            f"CRITERION: {label}\n"
+            f"CRITERION (in French): {label}\n"
             f"OPTIONS (copy one exactly): {json.dumps(valid_labels, ensure_ascii=False)}\n"
-            f"SELECTION TYPE: {'Multiple options allowed' if is_multi else 'Single option only'}\n\n"
+            f"SELECTION TYPE: {'Multiple options allowed' if is_multi else 'Single option only'}"
+            f"{range_hint}\n\n"
+            f"LANGUAGE NOTE: The criterion is in French but passages may be in French, Spanish, or English. "
+            f"Reason semantically across languages to match the criterion's intent to the passage content.\n\n"
             f"PASSAGES (pre-selected as most relevant):\n\"\"\"\n{context}\n\"\"\"\n\n"
             f"TASK: Select an option ONLY when the PASSAGES contain a clear, explicit statement "
-            f"that directly answers '{label}'.\n\n"
+            f"that directly answers '{label}' (in any language).\n\n"
             f"STRICT RULES:\n"
             f"• selected_labels must contain only values copied exactly from OPTIONS above\n"
             f"• Do NOT infer from indirect signals (e.g. social media presence, industry type)\n"
@@ -354,9 +497,12 @@ class LLMExtractorService:
     def _text(self, label: str, context: str, base: Dict) -> ExtractionResult:
         prompt = (
             f"You extract company data for an eligibility assessment.\n\n"
-            f"CRITERION: {label}\n\n"
+            f"CRITERION (in French): {label}\n\n"
+            f"LANGUAGE NOTE: The criterion is in French but passages may be in French, Spanish, or English. "
+            f"Extract information semantically: understand what the French criterion is asking, "
+            f"then find the answer in the passage regardless of its language.\n\n"
             f"PASSAGES (pre-selected as most relevant):\n\"\"\"\n{context}\n\"\"\"\n\n"
-            f"TASK: Find the passage that most specifically and directly answers '{label}'.\n\n"
+            f"TASK: Find the passage that most specifically and directly answers '{label}' (in any language).\n\n"
             f"STRICT RULES:\n"
             f"• Do NOT return generic marketing text, slogans, or page titles\n"
             f"• Do NOT infer or paraphrase — the evidence must be explicit in the text\n"
@@ -537,6 +683,13 @@ class LLMExtractorService:
                     "role": "system",
                     "content": (
                         "You are a strict data extraction assistant for company eligibility assessments. "
+                        "Criteria are written in French, but passages may be in French, Spanish, English, or any other language. "
+                        "You MUST extract information from passages regardless of their language, "
+                        "matching the semantic meaning of the French criterion to the content in any language. "
+                        "For example, 'effectif' (FR) = 'empleados/plantilla' (ES) = 'employees/headcount' (EN). "
+                        "'chiffre d affaires' (FR) = 'facturación/ingresos' (ES) = 'revenue/turnover' (EN). "
+                        "'recherche et développement' (FR) = 'investigación y desarrollo/I+D' (ES) = 'R&D' (EN). "
+                        "Apply the same reasoning quality regardless of the source language. "
                         "Only extract values explicitly stated in the provided passages. "
                         "Never infer or hallucinate. Respond with valid JSON only."
                     ),

@@ -25,6 +25,7 @@ Example of a decoded Keycloak access token (tokenParsed on the frontend):
 }
 """
 
+import json
 import logging
 import time
 from dataclasses import dataclass, field
@@ -41,39 +42,59 @@ logger = logging.getLogger(__name__)
 
 _bearer_scheme = HTTPBearer(auto_error=False)
 
-# ── JWKS cache (TTL = 5 minutes) ──────────────────────────────────────────────
-_jwks_cache: Dict[str, Any] = {}
+# ── JWKS cache (TTL = 5 minutes, Redis-backed with in-memory fallback) ────────
+_jwks_fallback: Dict[str, Any] = {}
 _jwks_fetched_at: float = 0.0
-_JWKS_TTL = 300  # seconds
+_JWKS_TTL    = 300   # seconds
+_JWKS_REDIS_KEY = "jwks:keycloak"
 
 
 def _jwks_url() -> str:
-    # Use internal URL for fetching JWKS when running inside Docker
-    # (keycloak_url may be localhost which is not reachable from inside a container)
     base = settings.keycloak_internal_url or settings.keycloak_url
     return f"{base}/realms/{settings.keycloak_realm}/protocol/openid-connect/certs"
 
 
 def _issuer() -> str:
-    # Must match the 'iss' claim in the token — always the public-facing URL
     return f"{settings.keycloak_url}/realms/{settings.keycloak_realm}"
 
 
 def _get_jwks() -> Dict[str, Any]:
-    global _jwks_cache, _jwks_fetched_at
+    global _jwks_fallback, _jwks_fetched_at
+    # Try Redis first
+    try:
+        from app.services.cache.redis_client import get_redis
+        r = get_redis()
+        if r:
+            cached = r.get(_JWKS_REDIS_KEY)
+            if cached:
+                return json.loads(cached)
+    except Exception:
+        pass
+    # Check in-memory fallback TTL
     now = time.monotonic()
-    if not _jwks_cache or now - _jwks_fetched_at > _JWKS_TTL:
+    if _jwks_fallback and now - _jwks_fetched_at <= _JWKS_TTL:
+        return _jwks_fallback
+    # Fetch from Keycloak
+    try:
+        resp = httpx.get(_jwks_url(), timeout=10)
+        resp.raise_for_status()
+        jwks = resp.json()
+        _jwks_fetched_at = now
+        _jwks_fallback   = jwks
         try:
-            resp = httpx.get(_jwks_url(), timeout=10)
-            resp.raise_for_status()
-            _jwks_cache = resp.json()
-            _jwks_fetched_at = now
-            logger.debug("JWKS refreshed from %s", _jwks_url())
-        except Exception as exc:
-            logger.error("Failed to fetch JWKS: %s", exc)
-            if not _jwks_cache:
-                raise RuntimeError(f"Cannot reach Keycloak JWKS endpoint: {exc}") from exc
-    return _jwks_cache
+            from app.services.cache.redis_client import get_redis
+            r = get_redis()
+            if r:
+                r.set(_JWKS_REDIS_KEY, json.dumps(jwks), ex=_JWKS_TTL)
+        except Exception:
+            pass
+        logger.debug("JWKS refreshed from %s", _jwks_url())
+        return jwks
+    except Exception as exc:
+        logger.error("Failed to fetch JWKS: %s", exc)
+        if not _jwks_fallback:
+            raise RuntimeError(f"Cannot reach Keycloak JWKS endpoint: {exc}") from exc
+        return _jwks_fallback
 
 
 # ── Token data ────────────────────────────────────────────────────────────────
@@ -149,6 +170,19 @@ def require_auth(
         )
     payload = _decode_token(credentials.credentials)
     return TokenData.from_payload(payload)
+
+
+def require_admin(user: TokenData = Depends(require_auth)) -> TokenData:
+    """
+    FastAPI dependency — requires 'admin' role in Keycloak realm_access.
+    Usage:  user: TokenData = Depends(require_admin)
+    """
+    if "admin" not in user.roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin role required.",
+        )
+    return user
 
 
 def optional_auth(

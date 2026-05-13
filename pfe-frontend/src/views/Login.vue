@@ -46,7 +46,7 @@
         <!-- LEFT -->
         <section class="left">
           <div class="brand anim-1">
-            <img src="/sellynx-logo.svg" alt="SELLYNX" class="brand-logo" />
+            <img :src="theme === 'light' ? '/sellynx-logo-light.svg' : '/sellynx-logo.svg'" alt="SELLYNX" class="brand-logo" />
             <span class="brand-sep"></span>
             <span class="brand-tag">Qualify Smarter</span>
           </div>
@@ -454,9 +454,11 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../auth/useAuth'
+import { useTheme } from '../composables/useTheme'
 
 const router = useRouter()
 const { login } = useAuth()
+const { theme } = useTheme()
 
 const loading  = ref(false)
 const username = ref('')
@@ -669,7 +671,7 @@ async function handleLogin() {
 /* Brand */
 .left { display: flex; flex-direction: column; gap: 36px; }
 .brand { display: flex; align-items: center; gap: 14px; }
-.brand-logo { height: 30px; }
+.brand-logo { height: 90px; }
 .brand-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.15); }
 .brand-tag { font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: rgba(255,255,255,0.28); }
 
@@ -1105,5 +1107,124 @@ async function handleLogin() {
 }
 @media (max-width: 600px) {
   .caps-grid { grid-template-columns: 1fr; }
+}
+
+/* ══════════════════════════════════════════
+   LIGHT MODE OVERRIDES
+══════════════════════════════════════════ */
+[data-theme="light"] .root { background: #EEF2F7; color: #0F172A; }
+[data-theme="light"] .bg-solid { background: #EEF2F7; }
+[data-theme="light"] .bg-noise { opacity: 0.012; }
+
+/* Blobs — softer, pastel */
+[data-theme="light"] .blob-a { background: radial-gradient(circle, rgba(99,102,241,0.18) 0%, transparent 70%); }
+[data-theme="light"] .blob-b { background: radial-gradient(circle, rgba(139,92,246,0.14) 0%, transparent 70%); }
+[data-theme="light"] .blob-c { background: radial-gradient(circle, rgba(232,98,44,0.14) 0%, transparent 70%); }
+[data-theme="light"] .blob-d { background: radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%); }
+
+/* Waves — dégradé blanc sur fond clair */
+[data-theme="light"] .gw1 { fill: rgba(255,255,255,0.68); }
+[data-theme="light"] .gw2 { fill: rgba(255,255,255,0.50); }
+[data-theme="light"] .gw3 { fill: rgba(255,255,255,0.42); }
+[data-theme="light"] .gw4 { fill: rgba(255,255,255,0.60); }
+
+/* Left side — hero text */
+[data-theme="light"] .headline { color: #0F172A; }
+[data-theme="light"] .brand-sep { background: rgba(15,23,42,0.18); }
+[data-theme="light"] .brand-tag { color: rgba(15,23,42,0.45); }
+[data-theme="light"] .hero-badge {
+  background: linear-gradient(135deg, rgba(232,98,44,0.08), rgba(124,58,237,0.06));
+  border-color: rgba(232,98,44,0.22); color: rgba(15,23,42,0.65);
+}
+[data-theme="light"] .subline { color: rgba(15,23,42,0.55); }
+[data-theme="light"] .scroll-ring { border-color: rgba(15,23,42,0.20); }
+[data-theme="light"] .scroll-dot { background: rgba(15,23,42,0.35); }
+
+/* Feature rows */
+[data-theme="light"] .feat {
+  background: rgba(255,255,255,0.75); border-color: rgba(15,23,42,0.08);
+  box-shadow: 0 2px 8px rgba(15,23,42,0.06);
+}
+[data-theme="light"] .feat:hover { background: rgba(255,255,255,0.95); border-color: rgba(232,98,44,0.22); }
+[data-theme="light"] .feat-title { color: #0F172A; }
+[data-theme="light"] .feat-sub { color: rgba(15,23,42,0.52); }
+
+/* Chips */
+[data-theme="light"] .chip {
+  background: rgba(255,255,255,0.65); border-color: rgba(15,23,42,0.12); color: rgba(15,23,42,0.55);
+}
+[data-theme="light"] .chip:hover { background: rgba(232,98,44,0.08); border-color: rgba(232,98,44,0.25); color: #E8622C; }
+
+/* Login card */
+[data-theme="light"] .card {
+  background: #FFFFFF; border-color: rgba(15,23,42,0.10);
+  box-shadow: 0 24px 72px rgba(15,23,42,0.13), 0 4px 16px rgba(15,23,42,0.07);
+}
+[data-theme="light"] .card-glow { background: radial-gradient(ellipse, rgba(232,98,44,0.10) 0%, transparent 70%); }
+[data-theme="light"] .card-title { color: #0F172A; }
+[data-theme="light"] .card-sub { color: rgba(15,23,42,0.50); }
+[data-theme="light"] .field-label { color: #475569; }
+[data-theme="light"] .field-input {
+  background: #F8FAFC; border-color: rgba(15,23,42,0.14); color: #0F172A;
+}
+[data-theme="light"] .field-input::placeholder { color: #94A3B8; }
+[data-theme="light"] .field-input:focus {
+  border-color: rgba(232,98,44,0.45); background: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(232,98,44,0.10);
+}
+[data-theme="light"] .pw-toggle { color: rgba(15,23,42,0.38); }
+[data-theme="light"] .pw-toggle:hover { color: rgba(15,23,42,0.65); }
+[data-theme="light"] .card-footer { color: rgba(15,23,42,0.45); }
+
+/* Landing sections */
+[data-theme="light"] .section-badge {
+  background: rgba(15,23,42,0.05); border-color: rgba(15,23,42,0.12); color: #475569;
+}
+[data-theme="light"] .section-badge.accent { background: rgba(232,98,44,0.08); color: #E8622C; }
+[data-theme="light"] .section-title { color: #0F172A; }
+[data-theme="light"] .title-dim { color: rgba(15,23,42,0.40); }
+[data-theme="light"] .section-sub { color: rgba(15,23,42,0.55); }
+
+/* Challenge cards */
+[data-theme="light"] .challenge-card {
+  background: rgba(255,255,255,0.88); border-color: rgba(15,23,42,0.08);
+  box-shadow: 0 4px 16px rgba(15,23,42,0.07);
+}
+[data-theme="light"] .challenge-card h3 { color: #0F172A; }
+[data-theme="light"] .challenge-card p  { color: rgba(15,23,42,0.55); }
+
+/* Solution split */
+[data-theme="light"] .split-item strong { color: #0F172A; }
+[data-theme="light"] .split-item p      { color: rgba(15,23,42,0.55); }
+[data-theme="light"] .divider-line { background: rgba(15,23,42,0.10); }
+[data-theme="light"] .divider-vs   { color: rgba(15,23,42,0.35); border-color: rgba(15,23,42,0.10); }
+
+/* Capability cards */
+[data-theme="light"] .cap-card {
+  background: rgba(255,255,255,0.88); border-color: rgba(15,23,42,0.08);
+  box-shadow: 0 2px 10px rgba(15,23,42,0.06);
+}
+[data-theme="light"] .cap-card h3 { color: #0F172A; }
+[data-theme="light"] .cap-card p  { color: rgba(15,23,42,0.55); }
+[data-theme="light"] .dchip {
+  background: rgba(255,255,255,0.7); border-color: rgba(15,23,42,0.12); color: rgba(15,23,42,0.55);
+}
+[data-theme="light"] .dchip:hover { background: rgba(232,98,44,0.07); border-color: rgba(232,98,44,0.25); color: #E8622C; }
+
+/* CTA section */
+[data-theme="light"] .cta-box {
+  background: rgba(255,255,255,0.88); border-color: rgba(15,23,42,0.10);
+  box-shadow: 0 24px 72px rgba(15,23,42,0.10), inset 0 1px 0 rgba(255,255,255,0.8);
+}
+[data-theme="light"] .cta-title  { color: #0F172A; }
+[data-theme="light"] .cta-sub    { color: rgba(15,23,42,0.55); }
+[data-theme="light"] .cta-badge  { color: rgba(15,23,42,0.60); border-color: rgba(232,98,44,0.22); }
+[data-theme="light"] .stat-label { color: rgba(15,23,42,0.50); }
+[data-theme="light"] .stat-sep   { background: rgba(15,23,42,0.10); }
+[data-theme="light"] .btn-ghost  {
+  border-color: rgba(15,23,42,0.15); color: rgba(15,23,42,0.55);
+}
+[data-theme="light"] .btn-ghost:hover {
+  background: rgba(15,23,42,0.05); border-color: rgba(15,23,42,0.25); color: #0F172A;
 }
 </style>
